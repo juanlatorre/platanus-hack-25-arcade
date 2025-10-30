@@ -47,6 +47,9 @@ const PITCHES = ['Grave', 'Bajo', 'Medio', 'Alto', 'Agudo', 'Muy Alto', 'Estride
 const RHYTHMS = ['Lento', 'Normal', 'Rápido', 'Veloz'];
 const DURATIONS = ['Breve', 'Medio', 'Extendido'];
 
+// Harmony levels: 1=⭐, 2=⭐⭐, 3=⭐⭐⭐
+const HARMONY_LEVELS = ['⭐', '⭐⭐', '⭐⭐⭐'];
+
 // Environmental power-ups
 const POWER_UPS = {
   WIND_GUST: 'wind_gust',     // 1.5x damage for 2 turns
@@ -54,7 +57,8 @@ const POWER_UPS = {
   MUSICAL_ECHO: 'musical_echo' // Copy opponent's successful pitch for 1 turn
 };
 
-let selectedMelody = { pitch: 0, rhythm: 0, duration: 0 }; // Indices for selection
+// Simplified melody selection (only pitch and harmony level)
+let selectedMelody = { pitch: 0, harmonyLevel: 1 };
 
 function preload() {
   // No assets to preload
@@ -263,7 +267,6 @@ function create() {
 
   // Create clickable controls
   this.attackButton = createAttackButton(this);
-  createRhythmDurationControls(this);
 
   // Tutorial texts
   this.tutorialTexts = [];
@@ -304,7 +307,7 @@ function create() {
   this.rhythmText = this.add.text(300, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.durationText = this.add.text(500, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
 
-  this.instructionsText = this.add.text(400, 560, 'Click en tonos para cambiar | Click en Ritmo/Duración | Click ¡Armonizar! para atacar | M: Música', { fontSize: '8px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
+  this.instructionsText = this.add.text(400, 560, 'Click repetido en tono = ⭐ → ⭐⭐ → ⭐⭐⭐  |  M: Música', { fontSize: '8px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
   this.windText = this.add.text(150, 420, '', { fontSize: '14px', color: '#00ffff' }).setOrigin(0.5).setVisible(false); // Under player bird
   this.birdsText = this.add.text(650, 420, '', { fontSize: '14px', color: '#ff8800' }).setOrigin(0.5).setVisible(false); // Under AI bird
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
@@ -511,20 +514,20 @@ function createTutorial(scene) {
   scene.tutorialTexts.push(t6);
   const t6b = scene.add.text(400, y + spacing * 8, '🔵 = Viento  🟠 = Aves  🟢 = Ambos', { fontSize: '16px', color: '#00ffff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t6b);
-  const t6c = scene.add.text(400, y + spacing * 9, 'El CLIMA afecta tu armonía: 💨 Viento = -10%  🌪️ Vendaval = -20%  🐦 Bandada = +15%', { fontSize: '12px', color: '#87CEEB' }).setOrigin(0.5).setVisible(true);
+  const t6c = scene.add.text(400, y + spacing * 9, 'El CLIMA afecta tus estrellas: 💨 Viento = -⭐  🌪️ Vendaval = -⭐⭐  🐦 Bandada = +⭐', { fontSize: '12px', color: '#87CEEB' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t6c);
-  const t7 = scene.add.text(400, y + spacing * 10, 'Controles: Click en tonos individuales | Click en Ritmo/Duración | Click ¡Armonizar!', { fontSize: '12px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t7 = scene.add.text(400, y + spacing * 10, 'Controles: Click repetido en tono = ⭐ → ⭐⭐ → ⭐⭐⭐ (cambia nivel)', { fontSize: '12px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t7);
   
   const t8 = scene.add.text(400, y + spacing * 12, '✨ ESPECIALES', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t8);
-  const t9 = scene.add.text(400, y + spacing * 13, '100% = PERFECTA (doble daño + cura)', { fontSize: '14px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  const t9 = scene.add.text(400, y + spacing * 13, '⭐⭐⭐ = PERFECTA (doble daño + cura)', { fontSize: '14px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t9);
-  const t10 = scene.add.text(400, y + spacing * 14, '80%+ = ATURDIMIENTO (enemigo pierde 1 turno)', { fontSize: '14px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  const t10 = scene.add.text(400, y + spacing * 14, '⭐⭐+ = ATURDIMIENTO (enemigo pierde 1 turno)', { fontSize: '14px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t10);
   const t11 = scene.add.text(400, y + spacing * 15, '💨 VIENTO FUERTE: 1.5x daño por 2 turnos', { fontSize: '12px', color: '#0088ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t11);
-  const t12 = scene.add.text(400, y + spacing * 16, '🐦 BANDADA: +20% armonía por 3 turnos', { fontSize: '12px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t12 = scene.add.text(400, y + spacing * 16, '🐦 BANDADA: +⭐ estrella por 3 turnos', { fontSize: '12px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t12);
   const t13 = scene.add.text(400, y + spacing * 17, '🎵 ECO MUSICAL: Copia tono exitoso rival', { fontSize: '12px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t13);
@@ -565,9 +568,6 @@ function update(time, delta) {
     this.menuTexts.forEach(t => t.setVisible(true));
     this.turnText.setVisible(false);
     if (this.tutorialTexts) this.tutorialTexts.forEach(t => t.setVisible(false));
-    // Hide mouse controls in menu
-    if (this.rhythmControl) this.rhythmControl.setVisible(false);
-    if (this.durationControl) this.durationControl.setVisible(false);
     // Hide attack button in menu
     if (this.attackButton) this.attackButton.setVisible(false);
     // Hide weather indicator in menu
@@ -691,26 +691,40 @@ function update(time, delta) {
       // Tone selector
       drawToneSelector(this.graphics, 100, 480, 600, 25, selectedMelody.pitch);
       
-      // Tone labels directly on selector
+      // Simplified pitch selector with harmony levels
       const pitchWidth = 600 / PITCHES.length;
       for (let i = 0; i < PITCHES.length; i++) {
         const px = 100 + i * pitchWidth + pitchWidth / 2;
         const labelColor = (PITCHES[i] === envTones.wind || PITCHES[i] === envTones.birds) ? '#ffffff' : '#888888';
+
+        // Show current harmony level for each pitch
+        let displayText = PITCHES[i];
+        if (selectedMelody.pitch === i && selectedMelody.harmonyLevel) {
+          displayText += '\n' + HARMONY_LEVELS[selectedMelody.harmonyLevel - 1];
+        }
+
         if (!this.toneLabels) this.toneLabels = [];
         if (!this.toneLabels[i]) {
-          this.toneLabels[i] = this.add.text(px, 492, PITCHES[i], { fontSize: '11px', color: labelColor }).setOrigin(0.5).setInteractive();
+          this.toneLabels[i] = this.add.text(px, 492, displayText, {
+            fontSize: '11px',
+            color: labelColor,
+            align: 'center'
+          }).setOrigin(0.5).setInteractive();
 
-          // Make it clickable immediately
-          this.toneLabels[i].on('pointerdown', () => {
+          // Simple click system: each click cycles harmony level ⭐ → ⭐⭐ → ⭐⭐⭐ → ⭐
+          this.toneLabels[i].on('pointerdown', (pointer) => {
+            // Cycle through harmony levels: 1 → 2 → 3 → 1
+            selectedMelody.harmonyLevel = ((selectedMelody.harmonyLevel || 1) % 3) + 1;
             selectedMelody.pitch = i;
+
             calculateHarmony();
             updateAttackButton(this, harmony);
-            // Update the display immediately
-            if (this.melodyInfoText) {
-              const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
-              this.melodyInfoText.setText(melodyInfo);
-            }
-            // Visual feedback
+
+            // Show current harmony level
+            const stars = HARMONY_LEVELS[selectedMelody.harmonyLevel - 1];
+            showHarmonyFeedback(this, i, stars);
+
+            // Add click feedback
             this.tweens.add({
               targets: this.toneLabels[i],
               scaleX: 1.2,
@@ -730,12 +744,19 @@ function update(time, delta) {
             this.toneLabels[i].setColor(isMatch ? '#ffffff' : '#888888');
           });
         } else {
-          this.toneLabels[i].setText(PITCHES[i]).setColor(labelColor).setVisible(true);
+          // Update display text to show current harmony level
+          let displayText = PITCHES[i];
+          if (selectedMelody.pitch === i && selectedMelody.harmonyLevel) {
+            displayText += '\n' + HARMONY_LEVELS[selectedMelody.harmonyLevel - 1];
+          }
+          this.toneLabels[i].setText(displayText).setColor(labelColor).setVisible(true);
         }
       }
 
       // Current melody display (shows what's currently selected)
-      const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
+      const stars = selectedMelody.stars || 0;
+      const starsText = HARMONY_LEVELS[Math.max(0, Math.min(2, stars))] || '';
+      const melodyInfo = 'SELECCIÓN: ' + PITCHES[selectedMelody.pitch] + ' ' + starsText;
       if (!this.melodyInfoText) {
         this.melodyInfoText = this.add.text(400, 530, melodyInfo, {
           fontSize: '12px',
@@ -791,18 +812,15 @@ function update(time, delta) {
       // Instructions at very bottom
       this.instructionsText.setVisible(true).setPosition(400, 560);
 
-      // Show mouse controls
-      if (this.rhythmControl) this.rhythmControl.setVisible(true);
-      if (this.durationControl) this.durationControl.setVisible(true);
+      // Show attack button
       if (this.attackButton) this.attackButton.setVisible(true);
 
       if (turnTimer <= 0) {
         // Don't auto-play if game has ended
         if (gameState === 'victory' || gameState === 'defeat') return;
-        // Auto random
+        // Auto random - basic harmony level
         selectedMelody.pitch = Math.floor(Math.random() * PITCHES.length);
-        selectedMelody.rhythm = Math.floor(Math.random() * RHYTHMS.length);
-        selectedMelody.duration = Math.floor(Math.random() * DURATIONS.length);
+        selectedMelody.harmonyLevel = 1; // Always basic when time runs out
         playHarmony(this);
         // Check if game ended after playHarmony
         if (gameState === 'victory' || gameState === 'defeat') return;
@@ -832,18 +850,18 @@ function update(time, delta) {
 
   // Hide ALL gameplay UI during victory/defeat
   if (gameState === 'victory' || gameState === 'defeat') {
-    this.turnText.setVisible(false);
-    this.harmonyText.setVisible(false);
-    this.pitchText.setVisible(false);
-    this.rhythmText.setVisible(false);
-    this.durationText.setVisible(false);
-    this.windText.setVisible(false);
-    this.birdsText.setVisible(false);
-    this.scoreText.setVisible(false);
-    this.timerText.setVisible(false);
+    if (this.turnText) this.turnText.setVisible(false);
+    if (this.harmonyText) this.harmonyText.setVisible(false);
+    if (this.pitchText) this.pitchText.setVisible(false);
+    if (this.rhythmText) this.rhythmText.setVisible(false);
+    if (this.durationText) this.durationText.setVisible(false);
+    if (this.windText) this.windText.setVisible(false);
+    if (this.birdsText) this.birdsText.setVisible(false);
+    if (this.scoreText) this.scoreText.setVisible(false);
+    if (this.timerText) this.timerText.setVisible(false);
     if (this.timerIcon) this.timerIcon.setVisible(false);
-    this.instructionsText.setVisible(false);
-    this.feedbackText.setVisible(false);
+    if (this.instructionsText) this.instructionsText.setVisible(false);
+    if (this.feedbackText) this.feedbackText.setVisible(false);
     if (this.toneLabels) this.toneLabels.forEach(l => l.setVisible(false));
     if (this.matchText) this.matchText.setVisible(false);
     if (this.legendText) this.legendText.setVisible(false);
@@ -861,39 +879,39 @@ function update(time, delta) {
     this.graphics.lineStyle(1, 0xffffff, 1);
     this.graphics.strokeRect(50, 10, 150, 12);
     // Player HP text - positioned below the bar, centered
-    this.playerHPText.setText('HP: ' + playerHealth + '/100').setVisible(true).setPosition(125, 28).setOrigin(0.5);
+    if (this.playerHPText) this.playerHPText.setText('HP: ' + playerHealth + '/100').setVisible(true).setPosition(125, 28).setOrigin(0.5);
 
     // AI health bar (top right)
     this.graphics.fillStyle(0xff0000, 1);
     this.graphics.fillRect(600, 10, (aiHealth / 100) * 150, 12);
     this.graphics.strokeRect(600, 10, 150, 12);
     // AI HP text - positioned below the bar, centered
-    this.aiHPText.setText('HP: ' + aiHealth + '/100').setVisible(true).setPosition(675, 28).setOrigin(0.5);
+    if (this.aiHPText) this.aiHPText.setText('HP: ' + aiHealth + '/100').setVisible(true).setPosition(675, 28).setOrigin(0.5);
 
-    
+
     // Compact score at top center
-    this.scoreText.setPosition(400, 10).setVisible(true);
+    if (this.scoreText) this.scoreText.setPosition(400, 10).setVisible(true);
 
     // Wind/Birds positioned under their respective birds
-    this.windText.setPosition(150, 420).setVisible(true);  // Under player bird (x=150)
-    this.birdsText.setPosition(650, 420).setVisible(true);  // Under AI bird (x=650)
+    if (this.windText) this.windText.setPosition(150, 420).setVisible(true);  // Under player bird (x=150)
+    if (this.birdsText) this.birdsText.setPosition(650, 420).setVisible(true);  // Under AI bird (x=650)
 
     // Power-up indicators
     drawPowerUpIndicators(this.graphics, activePowerUps, powerUpTurnsRemaining);
 
-    this.feedbackText.setVisible(false); // Only show when harmony is played
+    if (this.feedbackText) this.feedbackText.setVisible(false); // Only show when harmony is played
   } else {
-    this.feedbackText.setVisible(false);
+    if (this.feedbackText) this.feedbackText.setVisible(false);
   }
 
   // Hide gameplay UI in menu/victory/defeat (but NOT in tutorial)
   if (gameState !== 'player_turn' && gameState !== 'ai_turn' && gameState !== 'tutorial') {
-    this.instructionsText.setVisible(false);
-    this.windText.setVisible(false);
-    this.birdsText.setVisible(false);
-    this.playerHPText.setVisible(false);
-    this.aiHPText.setVisible(false);
-    this.timerText.setVisible(false);
+    if (this.instructionsText) this.instructionsText.setVisible(false);
+    if (this.windText) this.windText.setVisible(false);
+    if (this.birdsText) this.birdsText.setVisible(false);
+    if (this.playerHPText) this.playerHPText.setVisible(false);
+    if (this.aiHPText) this.aiHPText.setVisible(false);
+    if (this.timerText) this.timerText.setVisible(false);
     if (this.timerIcon) this.timerIcon.setVisible(false);
     if (this.toneLabels) this.toneLabels.forEach(l => l.setVisible(false));
     if (this.matchText) this.matchText.setVisible(false);
@@ -1043,22 +1061,31 @@ function calculateHarmony() {
     }
   }
 
-  harmony = 0;
-  if (PITCHES[effectivePitchIndex] === envTones.wind) harmony += 30;
-  if (PITCHES[effectivePitchIndex] === envTones.birds) harmony += 30;
-  if (RHYTHMS[selectedMelody.rhythm] === 'Rápido') harmony += 20;
-  if (DURATIONS[selectedMelody.duration] === 'Medio') harmony += 20;
+  // Simplified star-based harmony system
+  let stars = 0;
 
-  // Apply bird flock power-up bonus (+20% harmony)
+  // Base harmony from pitch matching
+  const matchesWind = PITCHES[effectivePitchIndex] === envTones.wind;
+  const matchesBirds = PITCHES[effectivePitchIndex] === envTones.birds;
+
+  if (matchesWind || matchesBirds) stars = 1; // ⭐ Basic
+  if (matchesWind && matchesBirds) stars = 2; // ⭐⭐ Good
+
+  // Harmony level bonus (from click type)
+  if (selectedMelody.harmonyLevel >= 2) stars = Math.max(stars, selectedMelody.harmonyLevel);
+
+  // Apply bird flock power-up bonus (+1 star)
   if (activePowerUps[currentPlayer] === POWER_UPS.BIRD_FLOCK && powerUpTurnsRemaining[currentPlayer] > 0) {
-    harmony += 20;
+    stars = Math.min(3, stars + 1);
   }
 
-  // Apply weather modifier
+  // Apply weather modifier (can reduce stars)
   const weatherMod = getWeatherModifier();
-  harmony += weatherMod;
+  stars = Math.max(0, Math.min(3, stars + Math.floor(weatherMod / 20)));
 
-  harmony = Math.max(0, Math.min(100, harmony));
+  // Convert stars to harmony percentage for compatibility
+  harmony = stars * 30 + 10; // ⭐=40%, ⭐⭐=70%, ⭐⭐⭐=100%
+  selectedMelody.stars = stars;
 }
 
 function drawPowerUpIndicators(graphics, activePowerUps, powerUpTurnsRemaining) {
@@ -1353,8 +1380,10 @@ function aiPlay(scene) {
   const targetPitch = Math.random() < 0.5 ? envTones.wind : envTones.birds;
   selectedMelody.pitch = PITCHES.indexOf(targetPitch);
   if (selectedMelody.pitch === -1) selectedMelody.pitch = Math.floor(Math.random() * PITCHES.length); // Fallback
-  selectedMelody.rhythm = Math.floor(Math.random() * RHYTHMS.length);
-  selectedMelody.duration = Math.floor(Math.random() * DURATIONS.length);
+
+  // AI harmony level: 50% chance for basic, 30% for good, 20% for perfect
+  const aiRand = Math.random();
+  selectedMelody.harmonyLevel = aiRand < 0.5 ? 1 : (aiRand < 0.8 ? 2 : 3);
   playHarmony(scene);
 
   // Check again after playHarmony (which calls checkWinLose)
@@ -1367,7 +1396,9 @@ function aiPlay(scene) {
   gameState = 'player_turn';
   scene.turnText.setText('Turno ' + turnCnt + ' - Jugador').setColor('#00ff00');
 
-  scene.feedbackText.setAlpha(1).setVisible(true).setText(`Armonía IA ${harmony}% - ¡${Math.floor(harmony / 10)} de daño!`);
+  const aiStars = selectedMelody.stars || Math.floor((harmony - 10) / 30);
+  const aiStarsText = HARMONY_LEVELS[Math.max(0, Math.min(2, aiStars))] || '⭐';
+  scene.feedbackText.setAlpha(1).setVisible(true).setText(`IA: ${aiStarsText} - ¡${Math.floor(harmony / 10)} de daño!`);
   scene.tweens.add({ targets: scene.feedbackText, alpha: 0, duration: 1500, onComplete: () => scene.feedbackText.setVisible(false) });
   turnTimer = 15000;
 }
@@ -1411,7 +1442,7 @@ function resetGame(scene) {
   combo = 0;
   score = 0;
   lastHarmony = 0;
-  selectedMelody = { pitch: 0, rhythm: 0, duration: 0 };
+  selectedMelody = { pitch: 0, harmonyLevel: 1 };
   harmony = 0;
 
   // Reset stun system
@@ -1697,19 +1728,21 @@ function createAttackButton(scene) {
 function updateAttackButton(scene, harmonyPercent) {
   if (!scene.attackButton) return;
 
-  // Update button text with harmony percentage
-  scene.attackButton.setText(`¡Armonizar con ${harmonyPercent}%!`);
+  // Update button text with stars instead of percentage
+  const stars = selectedMelody.stars || Math.floor((harmonyPercent - 10) / 30);
+  const starsText = HARMONY_LEVELS[Math.max(0, Math.min(2, stars))] || '⭐';
+  scene.attackButton.setText(`¡Armonizar con ${starsText}!`);
 
-  // Update button color based on harmony percentage
+  // Update button color based on stars
   let buttonColor;
-  if (harmonyPercent >= 80) {
-    buttonColor = 'rgba(255, 0, 255, 0.8)'; // Magenta for high harmony
-  } else if (harmonyPercent >= 60) {
-    buttonColor = 'rgba(255, 255, 0, 0.8)'; // Yellow for medium-high
-  } else if (harmonyPercent >= 30) {
-    buttonColor = 'rgba(0, 255, 0, 0.8)'; // Green for medium
+  if (stars >= 3) {
+    buttonColor = 'rgba(255, 0, 255, 0.8)'; // Magenta for perfect harmony
+  } else if (stars >= 2) {
+    buttonColor = 'rgba(255, 255, 0, 0.8)'; // Yellow for good harmony
+  } else if (stars >= 1) {
+    buttonColor = 'rgba(0, 255, 0, 0.8)'; // Green for basic harmony
   } else {
-    buttonColor = 'rgba(255, 0, 0, 0.8)'; // Red for low
+    buttonColor = 'rgba(255, 0, 0, 0.8)'; // Red for no harmony
   }
 
   scene.attackButton.currentHarmonyColor = buttonColor;
@@ -1964,6 +1997,30 @@ function getWeatherModifier() {
   }
 
   return modifier;
+}
+
+function showHarmonyFeedback(scene, pitchIndex, stars) {
+  // Show visual feedback when selecting harmony level
+  const pitchWidth = 600 / PITCHES.length;
+  const px = 100 + pitchIndex * pitchWidth + pitchWidth / 2;
+
+  // Create floating stars text
+  const starsText = scene.add.text(px, 470, stars, {
+    fontSize: '16px',
+    color: '#ffff00',
+    stroke: '#000000',
+    strokeThickness: 2
+  }).setOrigin(0.5);
+
+  // Animate stars floating up and fading
+  scene.tweens.add({
+    targets: starsText,
+    y: starsText.y - 20,
+    alpha: 0,
+    duration: 800,
+    ease: 'Power2',
+    onComplete: () => starsText.destroy()
+  });
 }
 
 function generateMountainData() {
