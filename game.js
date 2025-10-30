@@ -336,7 +336,16 @@ function create() {
   });
 
   this.input.keyboard.on('keydown-M', () => {
-    toggleBackgroundMusic();
+    const wasEnabled = backgroundMusicEnabled;
+    backgroundMusicEnabled = !backgroundMusicEnabled;
+
+    if (!backgroundMusicEnabled) {
+      stopBackgroundMusic();
+    } else if (!wasEnabled && !backgroundMusic) {
+      // Music was disabled and now enabled, restart it
+      startBackgroundMusic(this);
+    }
+
     // Show feedback
     const musicText = backgroundMusicEnabled ? '🎵 Música ON' : '🔇 Música OFF';
     this.feedbackText.setAlpha(1).setVisible(true).setText(musicText);
@@ -1532,13 +1541,6 @@ function stopBackgroundMusic() {
   }
 
   backgroundMusic = null;
-}
-
-function toggleBackgroundMusic() {
-  backgroundMusicEnabled = !backgroundMusicEnabled;
-  if (!backgroundMusicEnabled) {
-    stopBackgroundMusic();
-  }
 }
 
 function startRainbowEffect(scene, textObject) {
