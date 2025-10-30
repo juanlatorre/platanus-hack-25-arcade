@@ -38,6 +38,8 @@ let powerUpTurnsRemaining = { player: 0, ai: 0 };
 let backgroundMusic = null;
 let backgroundMusicEnabled = true;
 
+// Mouse controls - direct click on melody
+
 const PITCHES = ['Grave', 'Bajo', 'Medio', 'Alto', 'Agudo', 'Muy Alto', 'Estridente', 'Celestial'];
 const RHYTHMS = ['Lento', 'Normal', 'Rápido', 'Veloz'];
 const DURATIONS = ['Breve', 'Medio', 'Extendido'];
@@ -236,6 +238,10 @@ function create() {
   // Add floating musical notes (created once)
   addMenuDecorations(this);
 
+  // Create clickable controls
+  createAttackButton(this);
+  createRhythmDurationControls(this);
+
   // Tutorial texts
   this.tutorialTexts = [];
 
@@ -286,54 +292,11 @@ function create() {
         return;
       }
 
-      playHarmony(this);
-      // Check if game ended after playHarmony
-      if (gameState === 'victory' || gameState === 'defeat') return;
-      gameState = 'ai_turn';
-      this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000');
-      this.time.delayedCall(1000, () => aiPlay(this));
+      // SPACE now does nothing - use mouse button to attack
+      return;
     }
   });
 
-  this.input.keyboard.on('keydown-W', () => {
-    if (gameState === 'player_turn') {
-      selectedMelody.pitch = (selectedMelody.pitch + 1) % PITCHES.length;
-      calculateHarmony(); // Update harmony in real-time
-    }
-  });
-  this.input.keyboard.on('keydown-A', () => {
-    if (gameState === 'player_turn') {
-      selectedMelody.rhythm = (selectedMelody.rhythm + 1) % RHYTHMS.length;
-      calculateHarmony(); // Update harmony in real-time
-    }
-  });
-  this.input.keyboard.on('keydown-S', () => {
-    if (gameState === 'player_turn') {
-      selectedMelody.pitch = (selectedMelody.pitch - 1 + PITCHES.length) % PITCHES.length;
-      calculateHarmony(); // Update harmony in real-time
-    }
-  });
-
-  this.input.keyboard.on('keydown-D', () => {
-    if (gameState === 'player_turn') {
-      selectedMelody.rhythm = (selectedMelody.rhythm - 1 + RHYTHMS.length) % RHYTHMS.length;
-      calculateHarmony(); // Update harmony in real-time
-    }
-  });
-
-  this.input.keyboard.on('keydown-Q', () => {
-    if (gameState === 'player_turn') {
-      selectedMelody.duration = (selectedMelody.duration + 1) % DURATIONS.length;
-      calculateHarmony(); // Update harmony in real-time
-    }
-  });
-
-  this.input.keyboard.on('keydown-E', () => {
-    if (gameState === 'player_turn') {
-      selectedMelody.duration = (selectedMelody.duration - 1 + DURATIONS.length) % DURATIONS.length;
-      calculateHarmony(); // Update harmony in real-time
-    }
-  });
 
   this.input.keyboard.on('keydown-M', () => {
     const wasEnabled = backgroundMusicEnabled;
@@ -369,7 +332,7 @@ function create() {
   this.durationText = this.add.text(500, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.harmonyText = this.add.text(400, 100, 'Armonía: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
 
-  this.instructionsText = this.add.text(400, 560, 'W/S: Altura  |  A/D: Velocidad  |  Q/E: Duración  |  ESPACIO: Atacar  |  M: Música', { fontSize: '9px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
+  this.instructionsText = this.add.text(400, 560, 'Click en tonos para cambiar | Click en Ritmo/Duración | Click ¡Armonizar! para atacar | M: Música', { fontSize: '8px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
   this.windText = this.add.text(100, 420, '', { fontSize: '14px', color: '#00ffff' }).setVisible(false);
   this.birdsText = this.add.text(650, 420, '', { fontSize: '14px', color: '#ff8800' }).setOrigin(0.5).setVisible(false);
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
@@ -570,7 +533,7 @@ function createTutorial(scene) {
   scene.tutorialTexts.push(t6);
   const t6b = scene.add.text(400, y + spacing * 8, '🔵 = Viento  🟠 = Aves  🟢 = Ambos', { fontSize: '16px', color: '#00ffff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t6b);
-  const t7 = scene.add.text(400, y + spacing * 9, 'W/S: Altura | A/D: Velocidad | Q/E: Duración de la nota', { fontSize: '14px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t7 = scene.add.text(400, y + spacing * 9, 'Controles: Click en tonos individuales | Click en Ritmo/Duración | Click ¡Armonizar!', { fontSize: '12px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t7);
   
   const t8 = scene.add.text(400, y + spacing * 11, '✨ ESPECIALES', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
@@ -610,6 +573,11 @@ function update(time, delta) {
     this.menuTexts.forEach(t => t.setVisible(true));
     this.turnText.setVisible(false);
     if (this.tutorialTexts) this.tutorialTexts.forEach(t => t.setVisible(false));
+    // Hide mouse controls in menu
+    if (this.rhythmControl) this.rhythmControl.setVisible(false);
+    if (this.durationControl) this.durationControl.setVisible(false);
+    // Hide attack button in menu
+    if (this.attackButton) this.attackButton.setVisible(false);
   } else if (gameState === 'tutorial') {
     drawTutorial(this);
     // Hide all gameplay UI
@@ -690,16 +658,51 @@ function update(time, delta) {
         const labelColor = (PITCHES[i] === environmentalTones.wind || PITCHES[i] === environmentalTones.birds) ? '#ffffff' : '#888888';
         if (!this.toneLabels) this.toneLabels = [];
         if (!this.toneLabels[i]) {
-          this.toneLabels[i] = this.add.text(px, 492, PITCHES[i], { fontSize: '11px', color: labelColor }).setOrigin(0.5);
+          this.toneLabels[i] = this.add.text(px, 492, PITCHES[i], { fontSize: '11px', color: labelColor }).setOrigin(0.5).setInteractive();
+
+          // Make it clickable immediately
+          this.toneLabels[i].on('pointerdown', () => {
+            selectedMelody.pitch = i;
+            calculateHarmony();
+            // Update the display immediately
+            if (this.melodyInfoText) {
+              const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
+              this.melodyInfoText.setText(melodyInfo);
+            }
+            // Visual feedback
+            this.tweens.add({
+              targets: this.toneLabels[i],
+              scaleX: 1.2,
+              scaleY: 1.2,
+              duration: 100,
+              yoyo: true
+            });
+          });
+
+          // Hover effects
+          this.toneLabels[i].on('pointerover', () => {
+            this.toneLabels[i].setColor('#ffff00');
+          });
+
+          this.toneLabels[i].on('pointerout', () => {
+            const isMatch = (PITCHES[i] === environmentalTones.wind || PITCHES[i] === environmentalTones.birds);
+            this.toneLabels[i].setColor(isMatch ? '#ffffff' : '#888888');
+          });
         } else {
           this.toneLabels[i].setText(PITCHES[i]).setColor(labelColor).setVisible(true);
         }
       }
 
-      // Compact melody info in one line (above selector)
-      const melodyInfo = PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
+      // Current melody display (shows what's currently selected)
+      const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
       if (!this.melodyInfoText) {
-        this.melodyInfoText = this.add.text(400, 455, melodyInfo, { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+        this.melodyInfoText = this.add.text(400, 530, melodyInfo, {
+          fontSize: '12px',
+          color: '#cccccc',
+          backgroundColor: 'rgba(100,100,100,0.3)',
+          padding: { x: 10, y: 5 },
+          fontStyle: 'bold'
+        }).setOrigin(0.5);
       } else {
         this.melodyInfoText.setText(melodyInfo).setVisible(true);
       }
@@ -723,6 +726,11 @@ function update(time, delta) {
       
       // Instructions at very bottom
       this.instructionsText.setVisible(true).setPosition(400, 560);
+
+      // Show mouse controls
+      if (this.rhythmControl) this.rhythmControl.setVisible(true);
+      if (this.durationControl) this.durationControl.setVisible(true);
+      if (this.attackButton) this.attackButton.setVisible(true);
 
       if (turnTimer <= 0) {
         // Don't auto-play if game has ended
@@ -752,6 +760,9 @@ function update(time, delta) {
       if (this.matchText) this.matchText.setVisible(false);
       if (this.legendText) this.legendText.setVisible(false);
       if (this.melodyInfoText) this.melodyInfoText.setVisible(false);
+      if (this.rhythmControl) this.rhythmControl.setVisible(false);
+      if (this.durationControl) this.durationControl.setVisible(false);
+      if (this.attackButton) this.attackButton.setVisible(false);
     }
   }
 
@@ -772,6 +783,9 @@ function update(time, delta) {
     if (this.matchText) this.matchText.setVisible(false);
     if (this.legendText) this.legendText.setVisible(false);
     if (this.melodyInfoText) this.melodyInfoText.setVisible(false);
+    if (this.rhythmControl) this.rhythmControl.setVisible(false);
+    if (this.durationControl) this.durationControl.setVisible(false);
+    if (this.attackButton) this.attackButton.setVisible(false);
   }
 
   // Only show gameplay UI during actual gameplay
@@ -1541,6 +1555,134 @@ function stopBackgroundMusic() {
   }
 
   backgroundMusic = null;
+}
+
+function createClickableMelodyDisplay(scene) {
+  // Removed - now using individual controls
+}
+
+function cycleMelodyCombination() {
+  // Simple cycling through all combinations
+  selectedMelody.duration = (selectedMelody.duration + 1) % DURATIONS.length;
+
+  if (selectedMelody.duration === 0) { // Wrapped around, cycle rhythm
+    selectedMelody.rhythm = (selectedMelody.rhythm + 1) % RHYTHMS.length;
+
+    if (selectedMelody.rhythm === 0) { // Wrapped around, cycle pitch
+      selectedMelody.pitch = (selectedMelody.pitch + 1) % PITCHES.length;
+    }
+  }
+}
+
+function updateMelodyDisplay(scene) {
+  if (scene.melodyInfoText) {
+    const melodyInfo = PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
+    scene.melodyInfoText.setText(melodyInfo);
+  }
+}
+
+function createAttackButton(scene) {
+  // Create a themed attack button
+  const attackButton = scene.add.text(400, 400, '¡Armonizar!', {
+    fontSize: '20px',
+    color: '#ffffff',
+    backgroundColor: 'rgba(255, 100, 255, 0.8)',
+    padding: { x: 15, y: 8 },
+    borderRadius: 8,
+    fontStyle: 'bold'
+  }).setOrigin(0.5).setInteractive();
+
+  // Hover effects
+  attackButton.on('pointerover', () => {
+    attackButton.setBackgroundColor('rgba(255, 150, 255, 0.9)');
+    attackButton.setScale(1.05);
+  });
+
+  attackButton.on('pointerout', () => {
+    attackButton.setBackgroundColor('rgba(255, 100, 255, 0.8)');
+    attackButton.setScale(1);
+  });
+
+  attackButton.on('pointerdown', () => {
+    if (gameState === 'player_turn') {
+      playHarmony(scene);
+      if (gameState === 'victory' || gameState === 'defeat') return;
+      gameState = 'ai_turn';
+      scene.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000');
+      scene.time.delayedCall(1000, () => aiPlay(scene));
+    }
+    attackButton.setScale(0.95);
+    scene.time.delayedCall(100, () => attackButton.setScale(1));
+  });
+
+  return attackButton;
+}
+
+
+function createRhythmDurationControls(scene) {
+  // Create separate clickable controls for rhythm and duration
+
+  // Rhythm control
+  if (!scene.rhythmControl) {
+    scene.rhythmControl = scene.add.text(280, 460, 'Ritmo: ' + RHYTHMS[selectedMelody.rhythm], {
+      fontSize: '12px',
+      color: '#00ffff',
+      backgroundColor: 'rgba(0, 255, 255, 0.1)',
+      padding: { x: 6, y: 3 }
+    }).setOrigin(0.5).setInteractive();
+
+    scene.rhythmControl.on('pointerdown', () => {
+      selectedMelody.rhythm = (selectedMelody.rhythm + 1) % RHYTHMS.length;
+      scene.rhythmControl.setText('Ritmo: ' + RHYTHMS[selectedMelody.rhythm]);
+      calculateHarmony();
+      // Update the main display
+      if (scene.melodyInfoText) {
+        const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
+        scene.melodyInfoText.setText(melodyInfo);
+      }
+    });
+
+    scene.rhythmControl.on('pointerover', () => {
+      scene.rhythmControl.setBackgroundColor('rgba(0, 255, 255, 0.2)');
+    });
+
+    scene.rhythmControl.on('pointerout', () => {
+      scene.rhythmControl.setBackgroundColor('rgba(0, 255, 255, 0.1)');
+    });
+  } else {
+    scene.rhythmControl.setText('Ritmo: ' + RHYTHMS[selectedMelody.rhythm]).setVisible(true);
+  }
+
+  // Duration control
+  if (!scene.durationControl) {
+    scene.durationControl = scene.add.text(520, 460, 'Duración: ' + DURATIONS[selectedMelody.duration], {
+      fontSize: '12px',
+      color: '#ffff00',
+      backgroundColor: 'rgba(255, 255, 0, 0.1)',
+      padding: { x: 6, y: 3 }
+    }).setOrigin(0.5).setInteractive();
+
+    scene.durationControl.on('pointerdown', () => {
+      selectedMelody.duration = (selectedMelody.duration + 1) % DURATIONS.length;
+      scene.durationControl.setText('Duración: ' + DURATIONS[selectedMelody.duration]);
+      calculateHarmony();
+      // Update the main display
+      if (scene.melodyInfoText) {
+        const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
+        scene.melodyInfoText.setText(melodyInfo);
+      }
+    });
+
+    scene.durationControl.on('pointerover', () => {
+      scene.durationControl.setBackgroundColor('rgba(255, 255, 0, 0.2)');
+    });
+
+    scene.durationControl.on('pointerout', () => {
+      scene.durationControl.setBackgroundColor('rgba(255, 255, 0, 0.1)');
+    });
+  } else {
+    scene.durationControl.setText('Duración: ' + DURATIONS[selectedMelody.duration]).setVisible(true);
+  }
 }
 
 function startRainbowEffect(scene, textObject) {
