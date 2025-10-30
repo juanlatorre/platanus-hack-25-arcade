@@ -37,60 +37,75 @@ function preload() {
 
 // Replace existing drawBird with refined version based on illustration
 
-function drawBird(graphics, x, y, size, bodyColor, isZarapito = false, facing = 1) {
-  // Elongated neck and head
+function drawBird(graphics, x, y, size, bodyColor, isZarapito = false, facing = 1, animParams = {}) {
+  // Animation parameters
+  const neckAngle = animParams.neckAngle || 0; // Angle for neck movement
+  const bodyTilt = animParams.bodyTilt || 0; // Body tilt angle
+  const wingOffset = animParams.wingOffset || 0; // Wing movement offset
+  const headBob = animParams.headBob || 0; // Head bobbing
+  
+  // Apply body tilt (subtle rotation effect by offsetting x)
+  const tiltOffsetX = Math.sin(bodyTilt) * size * 0.1;
+  const tiltOffsetY = Math.cos(bodyTilt) * size * 0.05;
+  
+  // Elongated neck and head (with animation)
   graphics.fillStyle(bodyColor, 1);
-  graphics.fillEllipse(x + facing * size * 0, y - size * 0.3, size * 0.15, size * 0.4); // Neck (centered)
-  graphics.fillCircle(x + facing * size * 0, y - size * 0.55, size * 0.18); // Head (centered for mirror)
+  const neckX = x + facing * size * 0 + Math.sin(neckAngle) * size * 0.1 + tiltOffsetX;
+  const neckY = y - size * 0.3 + Math.cos(neckAngle) * size * 0.05 + tiltOffsetY;
+  graphics.fillEllipse(neckX, neckY, size * 0.15, size * 0.4); // Neck
+  const headX = neckX + Math.sin(neckAngle) * size * 0.15;
+  const headY = neckY - size * 0.25 + headBob;
+  graphics.fillCircle(headX, headY, size * 0.18); // Head
 
-  // Slender body with white underbelly
+  // Slender body with white underbelly (with tilt)
   graphics.fillStyle(bodyColor, 1);
-  graphics.fillEllipse(x, y, size * 0.35, size * 0.7);
+  graphics.fillEllipse(x + tiltOffsetX, y + tiltOffsetY, size * 0.35, size * 0.7);
   graphics.fillStyle(0xf5f5f5, 1);
-  graphics.fillEllipse(x, y + size * 0.2, size * 0.3, size * 0.4);
+  graphics.fillEllipse(x + tiltOffsetX, y + size * 0.2 + tiltOffsetY, size * 0.3, size * 0.4);
 
-
-  // Dark eye (mirror x)
+  // Dark eye (on animated head)
   graphics.fillStyle(0x000000, 1);
-  graphics.fillCircle(x + facing * size * 0.05, y - size * 0.55, size * 0.025);
+  graphics.fillCircle(headX + facing * size * 0.05, headY, size * 0.025);
 
-  // Long decurved beak (mirror direction)
+  // Long decurved beak (from animated head)
   graphics.lineStyle(size * 0.025, 0x333333, 1);
   graphics.beginPath();
-  graphics.moveTo(x + facing * size * 0.15, y - size * 0.5);
-  graphics.lineTo(x + facing * size * 0.3, y - size * 0.45);
-  graphics.lineTo(x + facing * size * 0.42, y - size * 0.35);
-  graphics.lineTo(x + facing * size * 0.48, y - size * 0.2);
-  graphics.lineTo(x + facing * size * 0.45, y);
+  graphics.moveTo(headX + facing * size * 0.15, headY + size * 0.05);
+  graphics.lineTo(headX + facing * size * 0.3, headY + size * 0.1);
+  graphics.lineTo(headX + facing * size * 0.42, headY + size * 0.2);
+  graphics.lineTo(headX + facing * size * 0.48, headY + size * 0.35);
+  graphics.lineTo(headX + facing * size * 0.45, headY + size * 0.55);
   graphics.strokePath();
 
-  // Pointed folded wings with feather details (mirror x)
+  // Pointed folded wings with feather details (with wing animation)
   graphics.fillStyle(bodyColor, 0.9);
+  const wingYOffset = wingOffset * size * 0.15;
   graphics.beginPath();
-  graphics.moveTo(x + facing * (-size * 0.15), y - size * 0.1);
-  graphics.lineTo(x + facing * (-size * 0.35), y + size * 0.15);
-  graphics.lineTo(x + facing * (-size * 0.1), y + size * 0.25);
+  graphics.moveTo(x + facing * (-size * 0.15) + tiltOffsetX, y - size * 0.1 + tiltOffsetY + wingYOffset);
+  graphics.lineTo(x + facing * (-size * 0.35) + tiltOffsetX, y + size * 0.15 + tiltOffsetY + wingYOffset);
+  graphics.lineTo(x + facing * (-size * 0.1) + tiltOffsetX, y + size * 0.25 + tiltOffsetY + wingYOffset);
   graphics.closePath();
   graphics.fillPath();
   graphics.lineStyle(size * 0.01, 0x000000, 0.3);
-  graphics.lineBetween(x + facing * (-size * 0.15), y - size * 0.1, x + facing * (-size * 0.35), y + size * 0.15);
-  graphics.lineBetween(x + facing * (-size * 0.2), y, x + facing * (-size * 0.3), y + size * 0.1);
+  graphics.lineBetween(x + facing * (-size * 0.15) + tiltOffsetX, y - size * 0.1 + tiltOffsetY + wingYOffset, x + facing * (-size * 0.35) + tiltOffsetX, y + size * 0.15 + tiltOffsetY + wingYOffset);
+  graphics.lineBetween(x + facing * (-size * 0.2) + tiltOffsetX, y + tiltOffsetY + wingYOffset, x + facing * (-size * 0.3) + tiltOffsetX, y + size * 0.1 + tiltOffsetY + wingYOffset);
 
-  // Long legs with three-toed feet (mirror x for feet)
+  // Long legs with three-toed feet (with tilt)
   graphics.fillStyle(0x808080, 1);
-  graphics.fillRect(x + facing * (-size * 0.05), y + size * 0.35, size * 0.02, size * 0.45);
-  graphics.fillRect(x + facing * size * 0.05, y + size * 0.35, size * 0.02, size * 0.45);
+  graphics.fillRect(x + facing * (-size * 0.05) + tiltOffsetX, y + size * 0.35 + tiltOffsetY, size * 0.02, size * 0.45);
+  graphics.fillRect(x + facing * size * 0.05 + tiltOffsetX, y + size * 0.35 + tiltOffsetY, size * 0.02, size * 0.45);
   graphics.fillStyle(0x808080, 1);
-  // Left foot (adjust for facing)
-  let leftX = x + facing * (-size * 0.05);
-  graphics.fillTriangle(leftX + facing * (-size * 0.05), y + size * 0.8, leftX, y + size * 0.8, leftX + facing * (-size * 0.025), y + size * 0.85);
-  graphics.fillRect(leftX + facing * (-size * 0.07), y + size * 0.8, size * 0.04, size * 0.01);
-  graphics.fillRect(leftX + facing * size * 0.02, y + size * 0.8, size * 0.04, size * 0.01);
-  // Right foot similar, mirrored
-  let rightX = x + facing * size * 0.05;
-  graphics.fillTriangle(rightX + facing * (-size * 0.05), y + size * 0.8, rightX, y + size * 0.8, rightX + facing * (-size * 0.025), y + size * 0.85);
-  graphics.fillRect(rightX + facing * (-size * 0.07), y + size * 0.8, size * 0.04, size * 0.01);
-  graphics.fillRect(rightX + facing * size * 0.02, y + size * 0.8, size * 0.04, size * 0.01);
+  // Left foot
+  let leftX = x + facing * (-size * 0.05) + tiltOffsetX;
+  let footY = y + size * 0.8 + tiltOffsetY;
+  graphics.fillTriangle(leftX + facing * (-size * 0.05), footY, leftX, footY, leftX + facing * (-size * 0.025), footY + size * 0.05);
+  graphics.fillRect(leftX + facing * (-size * 0.07), footY, size * 0.04, size * 0.01);
+  graphics.fillRect(leftX + facing * size * 0.02, footY, size * 0.04, size * 0.01);
+  // Right foot
+  let rightX = x + facing * size * 0.05 + tiltOffsetX;
+  graphics.fillTriangle(rightX + facing * (-size * 0.05), footY, rightX, footY, rightX + facing * (-size * 0.025), footY + size * 0.05);
+  graphics.fillRect(rightX + facing * (-size * 0.07), footY, size * 0.04, size * 0.01);
+  graphics.fillRect(rightX + facing * size * 0.02, footY, size * 0.04, size * 0.01);
 }
 
 function create() {
@@ -199,13 +214,137 @@ function create() {
   });
 
   this.timerText = this.add.text(500, 70, '7s', { fontSize: '12px', color: '#ffffff' }).setVisible(false);
+
+  // Create dynamic idle animations for birds
+  // Player bird animation parameters
+  this.playerBirdY = { value: 200 };
+  this.playerBirdNeckAngle = { value: 0 };
+  this.playerBirdBodyTilt = { value: 0 };
+  this.playerBirdWingOffset = { value: 0 };
+  this.playerBirdHeadBob = { value: 0 };
+  
+  // AI bird animation parameters
+  this.aiBirdY = { value: 200 };
+  this.aiBirdNeckAngle = { value: 0 };
+  this.aiBirdBodyTilt = { value: 0 };
+  this.aiBirdWingOffset = { value: 0 };
+  this.aiBirdHeadBob = { value: 0 };
+  
+  // Player bird - vertical bobbing (smooth breathing)
+  this.tweens.add({
+    targets: this.playerBirdY,
+    value: 200 + 12,
+    duration: 1800,
+    ease: 'Sine.easeInOut',
+    yoyo: true,
+    repeat: -1
+  });
+  
+  // Player bird - neck movement (looking around)
+  this.tweens.add({
+    targets: this.playerBirdNeckAngle,
+    value: 0.3,
+    duration: 2500,
+    ease: 'Sine.easeInOut',
+    yoyo: true,
+    repeat: -1,
+    delay: 300
+  });
+  
+  // Player bird - body tilt (swaying)
+  this.tweens.add({
+    targets: this.playerBirdBodyTilt,
+    value: 0.2,
+    duration: 2200,
+    ease: 'Sine.easeInOut',
+    yoyo: true,
+    repeat: -1,
+    delay: 100
+  });
+  
+  // Player bird - wing subtle movement
+  this.tweens.add({
+    targets: this.playerBirdWingOffset,
+    value: 0.15,
+    duration: 1600,
+    ease: 'Sine.easeInOut',
+    yoyo: true,
+    repeat: -1,
+    delay: 500
+  });
+  
+  // Player bird - head bobbing
+  this.tweens.add({
+    targets: this.playerBirdHeadBob,
+    value: 3,
+    duration: 1400,
+    ease: 'Sine.easeInOut',
+    yoyo: true,
+    repeat: -1,
+    delay: 200
+  });
+  
+  // AI bird - vertical bobbing (out of sync)
+  this.tweens.add({
+    targets: this.aiBirdY,
+    value: 200 + 12,
+    duration: 2000,
+    ease: 'Sine.easeInOut',
+    yoyo: true,
+    repeat: -1,
+    delay: 800
+  });
+  
+  // AI bird - neck movement (different pattern)
+  this.tweens.add({
+    targets: this.aiBirdNeckAngle,
+    value: -0.3,
+    duration: 2700,
+    ease: 'Sine.easeInOut',
+    yoyo: true,
+    repeat: -1,
+    delay: 1000
+  });
+  
+  // AI bird - body tilt (opposite sway)
+  this.tweens.add({
+    targets: this.aiBirdBodyTilt,
+    value: -0.2,
+    duration: 2400,
+    ease: 'Sine.easeInOut',
+    yoyo: true,
+    repeat: -1,
+    delay: 600
+  });
+  
+  // AI bird - wing movement
+  this.tweens.add({
+    targets: this.aiBirdWingOffset,
+    value: -0.15,
+    duration: 1800,
+    ease: 'Sine.easeInOut',
+    yoyo: true,
+    repeat: -1,
+    delay: 1200
+  });
+  
+  // AI bird - head bobbing
+  this.tweens.add({
+    targets: this.aiBirdHeadBob,
+    value: -3,
+    duration: 1500,
+    ease: 'Sine.easeInOut',
+    yoyo: true,
+    repeat: -1,
+    delay: 900
+  });
 }
 
 function drawMenu(scene) {
   console.log('Drawing bird - graphics defined:', !!scene.graphics);
-  // Decorative birds
-  drawBird(scene.graphics, 200, 400, 25, 0x8b4513, false, 1);
-  drawBird(scene.graphics, 600, 400, 25, 0x654321, true, -1);
+  // Decorative birds - bigger size
+  drawBird(scene.graphics, 200, 400, 35, 0x8b4513, false, 1);
+  drawBird(scene.graphics, 600, 400, 35, 0x654321, true, -1);
 }
 
 function createTutorial(scene) {
@@ -252,9 +391,9 @@ function createTutorial(scene) {
 
 function drawTutorial(scene) {
   scene.graphics.clear();
-  // Draw example birds
-  drawBird(scene.graphics, 200, 450, 30, 0x8b4513, true, 1);
-  drawBird(scene.graphics, 600, 450, 30, 0x654321, false, -1);
+  // Draw example birds - bigger size
+  drawBird(scene.graphics, 200, 450, 40, 0x8b4513, true, 1);
+  drawBird(scene.graphics, 600, 450, 40, 0x654321, false, -1);
 }
 
 function update(time, delta) {
@@ -293,9 +432,30 @@ function update(time, delta) {
       createTutorial(this);
     }
   } else if (gameState === 'player_turn' || gameState === 'ai_turn') {
-    // Draw birds (always visible in gameplay) - positioned in center area
-    drawBird(this.graphics, 150, 200, 50, 0x8b4513, true, 1);
-    drawBird(this.graphics, 650, 200, 50, 0x654321, false, -1);
+    // Draw birds (always visible in gameplay) - bigger size with dynamic idle animation
+    const playerY = this.playerBirdY ? this.playerBirdY.value : 200;
+    const aiY = this.aiBirdY ? this.aiBirdY.value : 200;
+    
+    // Player bird animation parameters
+    const playerAnim = {
+      neckAngle: this.playerBirdNeckAngle ? this.playerBirdNeckAngle.value : 0,
+      bodyTilt: this.playerBirdBodyTilt ? this.playerBirdBodyTilt.value : 0,
+      wingOffset: this.playerBirdWingOffset ? this.playerBirdWingOffset.value : 0,
+      headBob: this.playerBirdHeadBob ? this.playerBirdHeadBob.value : 0
+    };
+    
+    // AI bird animation parameters
+    const aiAnim = {
+      neckAngle: this.aiBirdNeckAngle ? this.aiBirdNeckAngle.value : 0,
+      bodyTilt: this.aiBirdBodyTilt ? this.aiBirdBodyTilt.value : 0,
+      wingOffset: this.aiBirdWingOffset ? this.aiBirdWingOffset.value : 0,
+      headBob: this.aiBirdHeadBob ? this.aiBirdHeadBob.value : 0
+    };
+    
+    // Draw with dynamic animations
+    const baseSize = 70;
+    drawBird(this.graphics, 150, playerY, baseSize, 0x8b4513, true, 1, playerAnim);
+    drawBird(this.graphics, 650, aiY, baseSize, 0x654321, false, -1, aiAnim);
 
     // Environmental tones - compact display
     this.windText.setText('🌬️ ' + environmentalTones.wind).setVisible(true);
@@ -457,6 +617,7 @@ let turnTimer = 15000; // 15 seconds
 let combo = 0;
 let score = 0;
 let lastHarmony = 0;
+let birdPositions = { player: { baseY: 200, offsetY: 0 }, ai: { baseY: 200, offsetY: 0 } };
 
 function generateTones() {
   environmentalTones.wind = PITCHES[Math.floor(Math.random() * PITCHES.length)];
