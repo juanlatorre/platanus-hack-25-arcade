@@ -116,7 +116,10 @@ function create() {
     if (gameState === 'menu') {
       gameState = 'player_turn';
       turnCount = 1;
-      turnTimer = 10000;
+      turnTimer = 7000;
+      combo = 0;
+      score = 0;
+      lastHarmony = 0;
       this.menuTexts.forEach(text => text.destroy()); // Clear menu
       this.turnText.setVisible(true);
     }
@@ -172,6 +175,7 @@ function create() {
 
   this.playerHPText = this.add.text(50, 5, 'Player HP: 100', { fontSize: '14px', color: '#00ff00' }).setVisible(false);
   this.aiHPText = this.add.text(600, 5, 'AI HP: 100', { fontSize: '14px', color: '#ff0000' }).setVisible(false);
+  this.scoreText = this.add.text(400, 5, 'Score: 0', { fontSize: '20px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
 
   this.input.on('pointerdown', () => {
     if (this.sound.context.state === 'suspended') this.sound.context.resume();
@@ -215,6 +219,7 @@ function update(time, delta) {
     // Environmental tones (always visible in gameplay)
     this.windText.setText('Wind: ' + environmentalTones.wind).setVisible(true);
     this.birdsText.setText('Birds: ' + environmentalTones.birds).setVisible(true);
+    this.scoreText.setText('Score: ' + score).setVisible(true);
 
     if (gameState === 'player_turn') {
       this.turnText.setText('Player Turn ' + turnCount).setColor('#00ff00').setVisible(true);
@@ -230,7 +235,7 @@ function update(time, delta) {
 
       // Timer bar
       this.graphics.fillStyle(0x00ffff, 1);
-      this.graphics.fillRect(350, 140, (turnTimer / 10000) * 100, 10);
+      this.graphics.fillRect(350, 140, (turnTimer / 7000) * 100, 10);
       this.graphics.strokeRect(350, 140, 100, 10);
 
       if (turnTimer <= 0) {
@@ -241,8 +246,8 @@ function update(time, delta) {
         playHarmony(this);
         gameState = 'ai_turn';
         this.turnText.setText('AI Turn ' + turnCount).setColor('#ff0000');
-        this.time.delayedCall(1000, () => aiPlay(this));
-        turnTimer = 10000;
+        this.time.delayedCall(500, () => aiPlay(this));
+        turnTimer = 7000;
       }
     } else if (gameState === 'ai_turn') {
       this.turnText.setText('AI Turn ' + turnCount).setColor('#ff0000').setVisible(true);
@@ -301,7 +306,10 @@ const FREQUENCIES = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00
 
 let environmentalTones = { wind: '', birds: '' };
 let harmonyMeter = 0;
-let turnTimer = 10000;
+let turnTimer = 7000; // Faster: 7 seconds
+let combo = 0;
+let score = 0;
+let lastHarmony = 0;
 
 function generateTones() {
   environmentalTones.wind = PITCHES[Math.floor(Math.random() * PITCHES.length)];
@@ -330,22 +338,54 @@ function calculateHarmony() {
 }
 
 function applyEffects(scene) {
-  const damage = Math.floor(harmonyMeter / 10);
-  if (gameState === 'player_turn') aiHealth -= damage;
-  else playerHealth -= damage;
-
-  // Special effects (simplified)
-  if (harmonyMeter >= 80) {
-    // Stun: skip next turn (placeholder: extra damage)
-    if (gameState === 'player_turn') aiHealth -= 5;
-    else playerHealth -= 5;
+  let baseDamage = Math.floor(harmonyMeter / 10);
+  
+  // Combo system (chain good harmonies)
+  if (harmonyMeter >= 50 && lastHarmony >= 50) {
+    combo++;
+    if (combo > 1) baseDamage += combo;
+  } else if (harmonyMeter < 50) {
+    combo = 0;
   }
+  
+  // Critical hit (100% harmony = double damage)
+  let damage = baseDamage;
+  if (harmonyMeter === 100) {
+    damage = baseDamage * 2;
+    scene.cameras.main.shake(300, 0.02); // Screen shake
+    playTone(scene, 800, 0.3);
+  } else if (harmonyMeter >= 80) {
+    scene.cameras.main.shake(200, 0.01);
+  }
+  
+  if (gameState === 'player_turn') {
+    aiHealth = Math.max(0, aiHealth - damage);
+    score += damage * 10 + (combo * 5);
+  } else {
+    playerHealth = Math.max(0, playerHealth - damage);
+  }
+
+  // Stun effect (80%+ harmony)
+  if (harmonyMeter >= 80) {
+    const stunText = scene.add.text(400, 250, 'STUN!', { fontSize: '32px', color: '#ff00ff' }).setOrigin(0.5);
+    scene.tweens.add({ targets: stunText, alpha: 0, y: stunText.y - 50, duration: 1000, onComplete: () => stunText.destroy() });
+    if (gameState === 'player_turn') aiHealth = Math.max(0, aiHealth - 3);
+    else playerHealth = Math.max(0, playerHealth - 3);
+  }
+  
+  lastHarmony = harmonyMeter;
   checkWinLose(scene);
 
   if (gameState === 'player_turn') {
-    animateAttack(scene, scene.graphics, 150, 300, 650, 300, harmonyMeter);
+    animateAttack(scene, scene.graphics, 150, 300, 650, 300, harmonyMeter, combo);
   } else {
-    animateAttack(scene, scene.graphics, 650, 300, 150, 300, harmonyMeter);
+    animateAttack(scene, scene.graphics, 650, 300, 150, 300, harmonyMeter, combo);
+  }
+  
+  // Show combo feedback
+  if (combo > 1) {
+    const comboText = scene.add.text(400, 280, `COMBO x${combo}!`, { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5);
+    scene.tweens.add({ targets: comboText, alpha: 0, scale: 1.5, duration: 1000, onComplete: () => comboText.destroy() });
   }
 }
 
@@ -363,7 +403,7 @@ function aiPlay(scene) {
 
   scene.feedbackText.setAlpha(1).setVisible(true).setText(`AI Harmony ${harmonyMeter}% - Dealt ${Math.floor(harmonyMeter / 10)} damage!`);
   scene.tweens.add({ targets: scene.feedbackText, alpha: 0, duration: 1500, onComplete: () => scene.feedbackText.setVisible(false) });
-  turnTimer = 10000; // Reset timer for next AI turn
+  turnTimer = 7000;
 }
 
 function checkWinLose(scene) {
@@ -390,25 +430,24 @@ function playTone(scene, freq, dur) {
   osc.stop(ctx.currentTime + dur);
 }
 
-function animateAttack(scene, graphics, fromX, fromY, toX, toY, strength) {
-  if (!graphics) return; // Safety check
+function animateAttack(scene, graphics, fromX, fromY, toX, toY, strength, combo = 0) {
+  if (!graphics) return;
   
-  // Draw attack line
-  graphics.lineStyle(3, 0xffff00, 1);
+  // Draw attack line (thicker for combo, purple for crit)
+  graphics.lineStyle(3 + combo, strength === 100 ? 0xff00ff : 0xffff00, 1);
   graphics.beginPath();
   graphics.moveTo(fromX, fromY);
   graphics.lineTo(toX, toY);
   graphics.strokePath();
   
-  // Simple particles (just circles) at impact point
-  for (let i = 0; i < Math.min(strength / 10, 5); i++) {
+  // More particles for combo/crit
+  const particleCount = Math.min(strength / 10 + combo, 10);
+  for (let i = 0; i < particleCount; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const dist = 20 + Math.random() * 30;
+    const dist = 20 + Math.random() * (30 + combo * 5);
     const px = toX + Math.cos(angle) * dist;
     const py = toY + Math.sin(angle) * dist;
-    graphics.fillStyle(0xffff00, 1);
-    graphics.fillCircle(px, py, 3);
+    graphics.fillStyle(strength === 100 ? 0xff00ff : 0xffff00, 1);
+    graphics.fillCircle(px, py, 3 + combo);
   }
-  
-  // Note: Animation will persist until next update() clears graphics naturally
 }
