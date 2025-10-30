@@ -34,9 +34,9 @@ let stunTurnsRemaining = { player: 0, ai: 0 };
 let activePowerUps = { player: null, ai: null };
 let powerUpTurnsRemaining = { player: 0, ai: 0 };
 
-const PITCHES = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
-const RHYTHMS = ['whole', 'half', 'quarter', 'eighth'];
-const DURATIONS = ['short', 'medium', 'long'];
+const PITCHES = ['Grave', 'Bajo', 'Medio', 'Alto', 'Agudo', 'Muy Alto', 'Estridente', 'Celestial'];
+const RHYTHMS = ['Lento', 'Normal', 'Rápido', 'Veloz'];
+const DURATIONS = ['Breve', 'Medio', 'Extendido'];
 
 // Environmental power-ups
 const POWER_UPS = {
@@ -238,6 +238,20 @@ function create() {
     }
   });
 
+  this.input.keyboard.on('keydown-Q', () => {
+    if (gameState === 'player_turn') {
+      selectedMelody.duration = (selectedMelody.duration + 1) % DURATIONS.length;
+      calculateHarmony(); // Update harmony in real-time
+    }
+  });
+
+  this.input.keyboard.on('keydown-E', () => {
+    if (gameState === 'player_turn') {
+      selectedMelody.duration = (selectedMelody.duration - 1 + DURATIONS.length) % DURATIONS.length;
+      calculateHarmony(); // Update harmony in real-time
+    }
+  });
+
   this.turnText = this.add.text(400, 30, '', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setVisible(false);
   
   // Initialize tone labels array
@@ -255,7 +269,7 @@ function create() {
   this.durationText = this.add.text(500, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.harmonyText = this.add.text(400, 100, 'Armonía: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
 
-  this.instructionsText = this.add.text(400, 560, 'W/S: Tono  |  A/D: Ritmo  |  ESPACIO: Atacar', { fontSize: '11px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
+  this.instructionsText = this.add.text(400, 560, 'W/S: Altura  |  A/D: Velocidad  |  Q/E: Duración  |  ESPACIO: Atacar', { fontSize: '10px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
   this.windText = this.add.text(100, 420, '', { fontSize: '14px', color: '#00ffff' }).setVisible(false);
   this.birdsText = this.add.text(700, 420, '', { fontSize: '14px', color: '#ff8800' }).setVisible(false);
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
@@ -436,7 +450,7 @@ function createTutorial(scene) {
   scene.tutorialTexts.push(t6);
   const t6b = scene.add.text(400, y + spacing * 8, '🔵 = Viento  🟠 = Aves  🟢 = Ambos', { fontSize: '16px', color: '#00ffff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t6b);
-  const t7 = scene.add.text(400, y + spacing * 9, 'Usa W/S para tono, A/D para ritmo', { fontSize: '16px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t7 = scene.add.text(400, y + spacing * 9, 'W/S: Altura | A/D: Velocidad | Q/E: Duración de la nota', { fontSize: '14px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t7);
   
   const t8 = scene.add.text(400, y + spacing * 11, '✨ ESPECIALES', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
@@ -694,7 +708,16 @@ function update(time, delta) {
   // Note: These texts recreate each frame—optimize by creating once if needed, but fine for now.
 }
 
-const FREQUENCIES = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88, C5: 523.25 };
+const FREQUENCIES = {
+  'Grave': 261.63,      // C4
+  'Bajo': 293.66,       // D4
+  'Medio': 329.63,      // E4
+  'Alto': 349.23,       // F4
+  'Agudo': 392.00,      // G4
+  'Muy Alto': 440.00,   // A4
+  'Estridente': 493.88, // B4
+  'Celestial': 523.25   // C5
+};
 
 let environmentalTones = { wind: '', birds: '' };
 let harmonyMeter = 0;
@@ -804,8 +827,8 @@ function playHarmony(scene) {
   const pitch = PITCHES[selectedMelody.pitch];
   const frequency = FREQUENCIES[pitch];
   let durationSec = 0.5;
-  if (DURATIONS[selectedMelody.duration] === 'short') durationSec = 0.3;
-  else if (DURATIONS[selectedMelody.duration] === 'long') durationSec = 1.0;
+  if (DURATIONS[selectedMelody.duration] === 'Breve') durationSec = 0.3;
+  else if (DURATIONS[selectedMelody.duration] === 'Extendido') durationSec = 1.0;
 
   playTone(scene, frequency, durationSec);
   calculateHarmony();
@@ -828,8 +851,8 @@ function calculateHarmony() {
   harmonyMeter = 0;
   if (PITCHES[effectivePitchIndex] === environmentalTones.wind) harmonyMeter += 30;
   if (PITCHES[effectivePitchIndex] === environmentalTones.birds) harmonyMeter += 30;
-  if (RHYTHMS[selectedMelody.rhythm] === 'quarter') harmonyMeter += 20;
-  if (DURATIONS[selectedMelody.duration] === 'medium') harmonyMeter += 20;
+  if (RHYTHMS[selectedMelody.rhythm] === 'Rápido') harmonyMeter += 20;
+  if (DURATIONS[selectedMelody.duration] === 'Medio') harmonyMeter += 20;
 
   // Apply bird flock power-up bonus (+20% harmony)
   if (activePowerUps[currentPlayer] === POWER_UPS.BIRD_FLOCK && powerUpTurnsRemaining[currentPlayer] > 0) {
