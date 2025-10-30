@@ -20,7 +20,7 @@ const config = {
 const game = new Phaser.Game(config);
 
 let gameState = 'menu'; // menu, tutorial, player_turn, ai_turn, victory, defeat
-let turnCount = 0;
+let turnCnt = 0;
 let playerHealth = 100;
 let aiHealth = 100;
 let graphics;
@@ -244,10 +244,9 @@ function create() {
       gameState = 'tutorial';
       if (this.menuTexts) this.menuTexts.forEach(text => text.setVisible(false));
       createTutorial(this);
-      console.log('Tutorial created, state:', gameState);
     } else if (gameState === 'tutorial' && gameObjects.length === 0) { // Only if clicking on empty space in tutorial
       gameState = 'player_turn';
-      turnCount = 1;
+      turnCnt = 1;
       turnTimer = 15000;
       combo = 0;
       score = 0;
@@ -256,7 +255,6 @@ function create() {
       this.turnText.setVisible(true);
       // Start background music when gameplay begins
       startBackgroundMusic(this);
-      console.log('Gameplay started from tutorial, state:', gameState);
     }
   });
 
@@ -294,7 +292,7 @@ function create() {
 
         // Skip to AI turn
         gameState = 'ai_turn';
-        this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000');
+        this.turnText.setText('Turno ' + turnCnt + ' - IA').setColor('#ff0000');
         this.time.delayedCall(1000, () => aiPlay(this));
         return;
       }
@@ -344,7 +342,6 @@ function create() {
   this.birdsText = this.add.text(650, 420, '', { fontSize: '14px', color: '#ff8800' }).setOrigin(0.5).setVisible(false);
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
 
-  console.log('Create called'); // Debug
 
   this.playerHPText = this.add.text(125, 28, 'HP: 100/100', { fontSize: '12px', color: '#00ff00' }).setOrigin(0.5).setVisible(false);
   this.aiHPText = this.add.text(675, 28, 'HP: 100/100', { fontSize: '12px', color: '#ff0000' }).setOrigin(0.5).setVisible(false);
@@ -352,20 +349,19 @@ function create() {
 
   this.input.on('pointerdown', () => {
     if (this.sound.context.state === 'suspended') this.sound.context.resume();
-    console.log('Audio resumed on click');
   });
 
   this.timerText = this.add.text(500, 70, '7s', { fontSize: '12px', color: '#ffffff' }).setVisible(false);
 
   // Create dynamic idle animations for birds
-  // Player bird animation parameters (moved down to y: 250)
+  // Player bird animation params
   this.playerBirdY = { value: 250 };
   this.playerBirdNeckAngle = { value: 0 };
   this.playerBirdBodyTilt = { value: 0 };
   this.playerBirdWingOffset = { value: 0 };
   this.playerBirdHeadBob = { value: 0 };
   
-  // AI bird animation parameters (moved down to y: 250)
+  // AI bird animation params
   this.aiBirdY = { value: 250 };
   this.aiBirdNeckAngle = { value: 0 };
   this.aiBirdBodyTilt = { value: 0 };
@@ -511,7 +507,6 @@ function drawMenu(scene) {
     scene.graphics.fillEllipse(birdX + 30, birdY, 25, 40);
   }
 
-  console.log('Drawing bird - graphics defined:', !!scene.graphics);
   // Decorative birds - bigger size
   drawBird(scene.graphics, 200, 400, 35, 0x8b4513, false, 1);
   drawBird(scene.graphics, 600, 400, 35, 0x654321, true, -1);
@@ -563,7 +558,6 @@ function createTutorial(scene) {
 
   scene.tweens.add({ targets: continueText, alpha: { from: 1, to: 0.5 }, duration: 1000, yoyo: true, repeat: -1 });
   
-  console.log('Tutorial creado, textos:', scene.tutorialTexts.length);
 }
 
 function drawTutorial(scene) {
@@ -603,19 +597,16 @@ function update(time, delta) {
     if (this.instructionsText) this.instructionsText.setVisible(false);
     // Show tutorial texts
     if (this.tutorialTexts && this.tutorialTexts.length > 0) {
-      console.log('Tutorial state: showing', this.tutorialTexts.length, 'texts');
       this.tutorialTexts.forEach((t, i) => {
         if (t && t.active !== false) {
           t.setVisible(true);
-          console.log('Text', i, 'visible:', t.visible, 'active:', t.active);
         }
       });
     } else {
-      console.log('WARNING: Tutorial state but no texts! Creating them now...');
       createTutorial(this);
     }
   } else if (gameState === 'player_turn' || gameState === 'ai_turn') {
-    // Draw birds (always visible in gameplay) - bigger size with dynamic idle animation
+    // Draw birds with dynamic idle animation
     const playerY = this.playerBirdY ? this.playerBirdY.value : 250;
     const aiY = this.aiBirdY ? this.aiBirdY.value : 250;
     const playerX = this.playerBirdX ? this.playerBirdX.value : 150;
@@ -639,32 +630,32 @@ function update(time, delta) {
       colorFlash: this.aiBirdColor ? this.aiBirdColor.value : 1.0
     };
     
-    // Draw with dynamic animations (using animated X positions) - bigger birds
+    // Draw with dynamic animations
     const baseSize = 85;
     drawBird(this.graphics, playerX, playerY, baseSize, 0x8b4513, true, 1, playerAnim);
     drawBird(this.graphics, aiX, aiY, baseSize, 0x654321, false, -1, aiAnim);
 
-    // Environmental tones - compact display
-    this.windText.setText('🌬️ ' + environmentalTones.wind).setVisible(true);
-    this.birdsText.setText('🐦 ' + environmentalTones.birds).setVisible(true);
+    // Environmental tones
+    this.windText.setText('🌬️ ' + envTones.wind).setVisible(true);
+    this.birdsText.setText('🐦 ' + envTones.birds).setVisible(true);
     
     // Score only shown during gameplay (not cluttering defeat/victory)
     this.scoreText.setText('⭐ Puntos: ' + score).setVisible(true);
 
     if (gameState === 'player_turn') {
-      this.turnText.setText('Turno ' + turnCount).setColor('#00ff00').setVisible(true).setPosition(400, 30);
+      this.turnText.setText('Turno ' + turnCnt).setColor('#00ff00').setVisible(true).setPosition(400, 30);
       
       // Update harmony in real-time
       calculateHarmony();
 
-      // Simplified tone selector - more compact, at bottom
+      // Tone selector
       drawToneSelector(this.graphics, 100, 480, 600, 25, selectedMelody.pitch);
       
       // Tone labels directly on selector
       const pitchWidth = 600 / PITCHES.length;
       for (let i = 0; i < PITCHES.length; i++) {
         const px = 100 + i * pitchWidth + pitchWidth / 2;
-        const labelColor = (PITCHES[i] === environmentalTones.wind || PITCHES[i] === environmentalTones.birds) ? '#ffffff' : '#888888';
+        const labelColor = (PITCHES[i] === envTones.wind || PITCHES[i] === envTones.birds) ? '#ffffff' : '#888888';
         if (!this.toneLabels) this.toneLabels = [];
         if (!this.toneLabels[i]) {
           this.toneLabels[i] = this.add.text(px, 492, PITCHES[i], { fontSize: '11px', color: labelColor }).setOrigin(0.5).setInteractive();
@@ -694,7 +685,7 @@ function update(time, delta) {
           });
 
           this.toneLabels[i].on('pointerout', () => {
-            const isMatch = (PITCHES[i] === environmentalTones.wind || PITCHES[i] === environmentalTones.birds);
+            const isMatch = (PITCHES[i] === envTones.wind || PITCHES[i] === envTones.birds);
             this.toneLabels[i].setColor(isMatch ? '#ffffff' : '#888888');
           });
         } else {
@@ -716,13 +707,13 @@ function update(time, delta) {
         this.melodyInfoText.setText(melodyInfo).setVisible(true);
       }
       
-      // Harmony text (compact, near harmony bar)
+      // Harmony text
       let harmonyColor = '#ff6666'; // Light red for low
-      if (harmonyMeter >= 80) harmonyColor = '#ff00ff'; // Magenta for high
-      else if (harmonyMeter >= 60) harmonyColor = '#ffff00'; // Yellow for medium-high
-      else if (harmonyMeter >= 30) harmonyColor = '#66ff66'; // Light green for medium
+      if (harmony >= 80) harmonyColor = '#ff00ff'; // Magenta for high
+      else if (harmony >= 60) harmonyColor = '#ffff00'; // Yellow for medium-high
+      else if (harmony >= 30) harmonyColor = '#66ff66'; // Light green for medium
       
-      this.harmonyText.setText(harmonyMeter + '%').setColor(harmonyColor).setVisible(true).setPosition(300, 70);
+      this.harmonyText.setText(harmony + '%').setColor(harmonyColor).setVisible(true).setPosition(300, 70);
 
       turnTimer -= delta;
       this.timerText.setText(Math.ceil(turnTimer / 1000) + 's').setVisible(true).setPosition(500, 70);
@@ -782,12 +773,12 @@ function update(time, delta) {
         // Check if game ended after playHarmony
         if (gameState === 'victory' || gameState === 'defeat') return;
         gameState = 'ai_turn';
-        this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000');
+        this.turnText.setText('Turno ' + turnCnt + ' - IA').setColor('#ff0000');
         this.time.delayedCall(500, () => aiPlay(this));
         turnTimer = 15000;
       }
     } else if (gameState === 'ai_turn') {
-      this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000').setVisible(true).setPosition(400, 30);
+      this.turnText.setText('Turno ' + turnCnt + ' - IA').setColor('#ff0000').setVisible(true).setPosition(400, 30);
       // Hide melody UI during AI turn
       this.pitchText.setVisible(false);
       this.rhythmText.setVisible(false);
@@ -848,7 +839,7 @@ function update(time, delta) {
 
     // Harmony meter bar (centered, below turn text)
     this.graphics.fillStyle(0xffff00, 1);
-    this.graphics.fillRect(350, 70, (harmonyMeter / 100) * 100, 8);
+    this.graphics.fillRect(350, 70, (harmony / 100) * 100, 8);
     this.graphics.lineStyle(1, 0xffff00, 1);
     this.graphics.strokeRect(350, 70, 100, 8);
     
@@ -895,8 +886,8 @@ const FREQUENCIES = {
   'Celestial': 523.25   // C5
 };
 
-let environmentalTones = { wind: '', birds: '' };
-let harmonyMeter = 0;
+let envTones = { wind: '', birds: '' };
+let harmony = 0;
 let turnTimer = 15000; // 15 seconds
 let combo = 0;
 let score = 0;
@@ -905,8 +896,8 @@ let lastSuccessfulPitch = { player: null, ai: null }; // For musical echo power-
 let birdPositions = { player: { baseY: 250, offsetY: 0 }, ai: { baseY: 250, offsetY: 0 } };
 
 function generateTones() {
-  environmentalTones.wind = PITCHES[Math.floor(Math.random() * PITCHES.length)];
-  environmentalTones.birds = PITCHES[Math.floor(Math.random() * PITCHES.length)];
+  envTones.wind = PITCHES[Math.floor(Math.random() * PITCHES.length)];
+  envTones.birds = PITCHES[Math.floor(Math.random() * PITCHES.length)];
 }
 
 function activateEnvironmentalPowerUp(scene, isPlayer) {
@@ -1007,7 +998,7 @@ function playHarmony(scene) {
   else if (DURATIONS[selectedMelody.duration] === 'Extendido') durationSec = 1.0;
 
   calculateHarmony(); // Calculate harmony first to get the percentage
-  playHarmonySound(scene, harmonyMeter, pitch, durationSec);
+  playHarmonySound(scene, harmony, pitch, durationSec);
   applyEffects(scene);
 }
 
@@ -1024,18 +1015,18 @@ function calculateHarmony() {
     }
   }
 
-  harmonyMeter = 0;
-  if (PITCHES[effectivePitchIndex] === environmentalTones.wind) harmonyMeter += 30;
-  if (PITCHES[effectivePitchIndex] === environmentalTones.birds) harmonyMeter += 30;
-  if (RHYTHMS[selectedMelody.rhythm] === 'Rápido') harmonyMeter += 20;
-  if (DURATIONS[selectedMelody.duration] === 'Medio') harmonyMeter += 20;
+  harmony = 0;
+  if (PITCHES[effectivePitchIndex] === envTones.wind) harmony += 30;
+  if (PITCHES[effectivePitchIndex] === envTones.birds) harmony += 30;
+  if (RHYTHMS[selectedMelody.rhythm] === 'Rápido') harmony += 20;
+  if (DURATIONS[selectedMelody.duration] === 'Medio') harmony += 20;
 
   // Apply bird flock power-up bonus (+20% harmony)
   if (activePowerUps[currentPlayer] === POWER_UPS.BIRD_FLOCK && powerUpTurnsRemaining[currentPlayer] > 0) {
-    harmonyMeter += 20;
+    harmony += 20;
   }
 
-  harmonyMeter = Math.min(100, harmonyMeter);
+  harmony = Math.min(100, harmony);
 }
 
 function drawPowerUpIndicators(graphics, activePowerUps, powerUpTurnsRemaining) {
@@ -1089,8 +1080,8 @@ function getPowerUpColor(powerUpType) {
 
 function drawToneSelector(graphics, x, y, width, height, selectedIdx) {
   const pitchWidth = width / PITCHES.length;
-  const matchWind = PITCHES.indexOf(environmentalTones.wind);
-  const matchBirds = PITCHES.indexOf(environmentalTones.birds);
+  const matchWind = PITCHES.indexOf(envTones.wind);
+  const matchBirds = PITCHES.indexOf(envTones.birds);
   
   for (let i = 0; i < PITCHES.length; i++) {
     const px = x + i * pitchWidth;
@@ -1127,7 +1118,7 @@ function applyEffects(scene) {
   const currentPlayer = gameState === 'player_turn' ? 'player' : 'ai';
   const opponent = gameState === 'player_turn' ? 'ai' : 'player';
 
-  let baseDamage = Math.floor(harmonyMeter / 10);
+  let baseDamage = Math.floor(harmony / 10);
   let moveName = '';
   let healAmount = 0;
 
@@ -1137,15 +1128,15 @@ function applyEffects(scene) {
   }
 
   // Combo system (chain good harmonies)
-  if (harmonyMeter >= 50 && lastHarmony >= 50) {
+  if (harmony >= 50 && lastHarmony >= 50) {
     combo++;
     if (combo > 1) baseDamage += combo;
-  } else if (harmonyMeter < 50) {
+  } else if (harmony < 50) {
     combo = 0;
   }
   
   // Special moves and effects based on harmony
-  if (harmonyMeter === 100) {
+  if (harmony === 100) {
     moveName = '¡ARMONÍA PERFECTA!';
     baseDamage = baseDamage * 2;
     healAmount = 5; // Heal on perfect
@@ -1160,18 +1151,18 @@ function applyEffects(scene) {
       const py = 300 + Math.sin(angle) * dist;
       scene.graphics.fillCircle(px, py, 4 + Math.random() * 4);
     }
-  } else if (harmonyMeter >= 90) {
+  } else if (harmony >= 90) {
     moveName = '¡GRAN ARMONÍA!';
     baseDamage = Math.floor(baseDamage * 1.5);
     healAmount = 3;
     scene.cameras.main.shake(250, 0.015);
     playTone(scene, 750, 0.3);
-  } else if (harmonyMeter >= 80) {
+  } else if (harmony >= 80) {
     moveName = '¡ATAQUE ATURDIDOR!';
     baseDamage += 3;
     scene.cameras.main.shake(200, 0.01);
     playTone(scene, 650, 0.25);
-  } else if (harmonyMeter >= 60) {
+  } else if (harmony >= 60) {
     moveName = 'BUENA ARMONÍA';
     playTone(scene, 550, 0.2);
   } else {
@@ -1187,25 +1178,25 @@ function applyEffects(scene) {
     // Apply damage and animate AI hit
     aiHealth = Math.max(0, aiHealth - damage);
     if (damage > 0) {
-      animateBirdHit(scene, false, damage, harmonyMeter);
+      animateBirdHit(scene, false, damage, harmony);
     }
     playerHealth = Math.min(100, playerHealth + healAmount);
-    score += damage * 10 + (combo * 5) + (harmonyMeter === 100 ? 100 : 0);
+    score += damage * 10 + (combo * 5) + (harmony === 100 ? 100 : 0);
   } else {
     // Animate AI attack
     animateBirdAttack(scene, false);
     // Apply damage and animate player hit
     playerHealth = Math.max(0, playerHealth - damage);
     if (damage > 0) {
-      animateBirdHit(scene, true, damage, harmonyMeter);
+      animateBirdHit(scene, true, damage, harmony);
     }
     aiHealth = Math.min(100, aiHealth + healAmount);
   }
 
   // Show move name
   const moveText = scene.add.text(400, 220, moveName, { 
-    fontSize: harmonyMeter >= 80 ? '36px' : '28px', 
-    color: harmonyMeter === 100 ? '#ff00ff' : harmonyMeter >= 80 ? '#ff00ff' : '#ffffff',
+    fontSize: harmony >= 80 ? '36px' : '28px',
+    color: harmony === 100 ? '#ff00ff' : harmony >= 80 ? '#ff00ff' : '#ffffff',
     stroke: '#000000',
     strokeThickness: 4
   }).setOrigin(0.5);
@@ -1219,7 +1210,7 @@ function applyEffects(scene) {
   });
 
   // Stun effect (80%+ harmony) - disables enemy for 1 full turn
-  if (harmonyMeter >= 80) {
+  if (harmony >= 80) {
     const stunText = scene.add.text(400, 250, '¡ATURDIMIENTO!', { fontSize: '32px', color: '#ff00ff' }).setOrigin(0.5);
     scene.tweens.add({ targets: stunText, alpha: 0, y: stunText.y - 50, duration: 1000, onComplete: () => stunText.destroy() });
 
@@ -1249,7 +1240,7 @@ function applyEffects(scene) {
   }
   
   // Record successful pitch for musical echo (if harmony >= 60%)
-  if (harmonyMeter >= 60) {
+  if (harmony >= 60) {
     lastSuccessfulPitch[currentPlayer] = PITCHES[selectedMelody.pitch];
     // Try to activate environmental power-up (15% chance)
     activateEnvironmentalPowerUp(scene, gameState === 'player_turn');
@@ -1269,7 +1260,7 @@ function applyEffects(scene) {
     }
   }
 
-  lastHarmony = harmonyMeter;
+  lastHarmony = harmony;
   checkWinLose(scene);
 
   // If game ended, don't continue with turn transitions
@@ -1284,9 +1275,9 @@ function applyEffects(scene) {
   const aiY = scene.aiBirdY ? scene.aiBirdY.value : 250;
   
   if (gameState === 'player_turn') {
-    animateAttack(scene, scene.graphics, playerX, playerY, aiX, aiY, harmonyMeter, combo);
+    animateAttack(scene, scene.graphics, playerX, playerY, aiX, aiY, harmony, combo);
   } else if (gameState === 'ai_turn') {
-    animateAttack(scene, scene.graphics, aiX, aiY, playerX, playerY, harmonyMeter, combo);
+    animateAttack(scene, scene.graphics, aiX, aiY, playerX, playerY, harmony, combo);
   }
   
   // Show combo feedback
@@ -1319,15 +1310,15 @@ function aiPlay(scene) {
     }
 
     // Skip to next turn
-    turnCount++;
+    turnCnt++;
     generateTones();
     gameState = 'player_turn';
-    scene.turnText.setText('Turno ' + turnCount + ' - Jugador').setColor('#00ff00');
+    scene.turnText.setText('Turno ' + turnCnt + ' - Jugador').setColor('#00ff00');
     turnTimer = 15000;
     return;
   }
 
-  const targetPitch = Math.random() < 0.5 ? environmentalTones.wind : environmentalTones.birds;
+  const targetPitch = Math.random() < 0.5 ? envTones.wind : envTones.birds;
   selectedMelody.pitch = PITCHES.indexOf(targetPitch);
   if (selectedMelody.pitch === -1) selectedMelody.pitch = Math.floor(Math.random() * PITCHES.length); // Fallback
   selectedMelody.rhythm = Math.floor(Math.random() * RHYTHMS.length);
@@ -1339,12 +1330,12 @@ function aiPlay(scene) {
     return; // Game ended, stop
   }
 
-  turnCount++;
+  turnCnt++;
   generateTones();
   gameState = 'player_turn';
-  scene.turnText.setText('Turno ' + turnCount + ' - Jugador').setColor('#00ff00');
+  scene.turnText.setText('Turno ' + turnCnt + ' - Jugador').setColor('#00ff00');
 
-  scene.feedbackText.setAlpha(1).setVisible(true).setText(`Armonía IA ${harmonyMeter}% - ¡${Math.floor(harmonyMeter / 10)} de daño!`);
+  scene.feedbackText.setAlpha(1).setVisible(true).setText(`Armonía IA ${harmony}% - ¡${Math.floor(harmony / 10)} de daño!`);
   scene.tweens.add({ targets: scene.feedbackText, alpha: 0, duration: 1500, onComplete: () => scene.feedbackText.setVisible(false) });
   turnTimer = 15000;
 }
@@ -1381,7 +1372,7 @@ function resetGame(scene) {
   
   // Reset all game variables
   gameState = 'player_turn';
-  turnCount = 1;
+  turnCnt = 1;
   playerHealth = 100;
   aiHealth = 100;
   turnTimer = 15000;
@@ -1389,7 +1380,7 @@ function resetGame(scene) {
   score = 0;
   lastHarmony = 0;
   selectedMelody = { pitch: 0, rhythm: 0, duration: 0 };
-  harmonyMeter = 0;
+  harmony = 0;
 
   // Reset stun system
   playerStunned = false;
@@ -1409,7 +1400,7 @@ function resetGame(scene) {
   generateTones();
   
   // Reset UI elements
-  scene.turnText.setText('Turno ' + turnCount + ' - Jugador').setColor('#00ff00').setVisible(true);
+  scene.turnText.setText('Turno ' + turnCnt + ' - Jugador').setColor('#00ff00').setVisible(true);
 }
 
 function checkWinLose(scene) {
@@ -1656,7 +1647,7 @@ function createAttackButton(scene) {
       playHarmony(scene);
       if (gameState === 'victory' || gameState === 'defeat') return;
       gameState = 'ai_turn';
-      scene.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000');
+      scene.turnText.setText('Turno ' + turnCnt + ' - IA').setColor('#ff0000');
       scene.time.delayedCall(1000, () => aiPlay(scene));
     }
     attackButton.setScale(0.95);
