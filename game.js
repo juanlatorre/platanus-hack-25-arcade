@@ -140,47 +140,65 @@ function create() {
   });
 
   this.input.keyboard.on('keydown-W', () => {
-    if (gameState === 'player_turn') selectedMelody.pitch = (selectedMelody.pitch + 1) % PITCHES.length;
+    if (gameState === 'player_turn') {
+      selectedMelody.pitch = (selectedMelody.pitch + 1) % PITCHES.length;
+      calculateHarmony(); // Update harmony in real-time
+    }
   });
   this.input.keyboard.on('keydown-A', () => {
-    if (gameState === 'player_turn') selectedMelody.rhythm = (selectedMelody.rhythm + 1) % RHYTHMS.length;
+    if (gameState === 'player_turn') {
+      selectedMelody.rhythm = (selectedMelody.rhythm + 1) % RHYTHMS.length;
+      calculateHarmony(); // Update harmony in real-time
+    }
   });
   this.input.keyboard.on('keydown-S', () => {
-    if (gameState === 'player_turn') selectedMelody.duration = (selectedMelody.duration + 1) % DURATIONS.length;
+    if (gameState === 'player_turn') {
+      selectedMelody.duration = (selectedMelody.duration + 1) % DURATIONS.length;
+      calculateHarmony(); // Update harmony in real-time
+    }
   });
 
   this.input.keyboard.on('keydown-D', () => {
-    if (gameState === 'player_turn') selectedMelody.duration = (selectedMelody.duration - 1 + DURATIONS.length) % DURATIONS.length;
+    if (gameState === 'player_turn') {
+      selectedMelody.duration = (selectedMelody.duration - 1 + DURATIONS.length) % DURATIONS.length;
+      calculateHarmony(); // Update harmony in real-time
+    }
   });
 
-  this.turnText = this.add.text(400, 50, '', { fontSize: '24px', color: '#00ff00' }).setOrigin(0.5).setVisible(false);
+  this.turnText = this.add.text(400, 30, '', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setVisible(false);
+  
+  // Initialize tone labels array
+  this.toneLabels = [];
+  this.matchText = null;
+  this.legendText = null;
+  this.melodyInfoText = null;
 
   // Generate initial tones
   generateTones();
 
   // Melody UI texts (create once)
-  this.pitchText = this.add.text(100, 420, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
-  this.rhythmText = this.add.text(300, 420, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
-  this.durationText = this.add.text(500, 420, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
+  this.pitchText = this.add.text(100, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
+  this.rhythmText = this.add.text(300, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
+  this.durationText = this.add.text(500, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.harmonyText = this.add.text(400, 100, 'Armonía: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
 
-  this.instructionsText = this.add.text(380, 530, 'W: Tono (coincide con Viento/Aves)\nA: Ritmo | S/D: Duración\nESPACIO: Atacar\n💡 Mayor armonía = Más daño', { fontSize: '13px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
-  this.windText = this.add.text(100, 150, '', { fontSize: '16px', color: '#00ffff' }).setVisible(false);
-  this.birdsText = this.add.text(700, 150, '', { fontSize: '16px', color: '#ff8800' }).setVisible(false);
+  this.instructionsText = this.add.text(400, 560, 'W: Tono  |  A: Ritmo  |  S/D: Duración  |  ESPACIO: Atacar', { fontSize: '11px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
+  this.windText = this.add.text(100, 420, '', { fontSize: '14px', color: '#00ffff' }).setVisible(false);
+  this.birdsText = this.add.text(700, 420, '', { fontSize: '14px', color: '#ff8800' }).setVisible(false);
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
 
   console.log('Create called'); // Debug
 
-  this.playerHPText = this.add.text(50, 5, 'HP Jugador: 100', { fontSize: '14px', color: '#00ff00' }).setVisible(false);
-  this.aiHPText = this.add.text(600, 5, 'HP IA: 100', { fontSize: '14px', color: '#ff0000' }).setVisible(false);
-  this.scoreText = this.add.text(400, 5, 'Puntos: 0', { fontSize: '20px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
+  this.playerHPText = this.add.text(50, 10, '100/100', { fontSize: '11px', color: '#00ff00' }).setVisible(false);
+  this.aiHPText = this.add.text(750, 10, '100/100', { fontSize: '11px', color: '#ff0000' }).setVisible(false);
+  this.scoreText = this.add.text(400, 10, '0', { fontSize: '14px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
 
   this.input.on('pointerdown', () => {
     if (this.sound.context.state === 'suspended') this.sound.context.resume();
     console.log('Audio resumed on click');
   });
 
-  this.timerText = this.add.text(400, 70, 'Tiempo: 7s', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
+  this.timerText = this.add.text(500, 70, '7s', { fontSize: '12px', color: '#ffffff' }).setVisible(false);
 }
 
 function drawMenu(scene) {
@@ -209,18 +227,20 @@ function createTutorial(scene) {
   
   const t5 = scene.add.text(400, y + spacing * 6, '🎼 ARMONÍA', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t5);
-  const t6 = scene.add.text(400, y + spacing * 7, 'Coincide tu TONO con Viento o Aves', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(true);
+  const t6 = scene.add.text(400, y + spacing * 7, 'El selector muestra qué tonos coinciden:', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t6);
-  const t7 = scene.add.text(400, y + spacing * 8, 'Mayor armonía = Más daño', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(true);
+  const t6b = scene.add.text(400, y + spacing * 8, '🔵 = Viento  🟠 = Aves  🟢 = Ambos', { fontSize: '16px', color: '#00ffff' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t6b);
+  const t7 = scene.add.text(400, y + spacing * 9, '¡Selecciona los tonos de colores para más daño!', { fontSize: '16px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t7);
   
-  const t8 = scene.add.text(400, y + spacing * 10, '✨ ESPECIALES', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t8 = scene.add.text(400, y + spacing * 11, '✨ ESPECIALES', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t8);
-  const t9 = scene.add.text(400, y + spacing * 11, '100% = PERFECTA (doble daño + cura)', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  const t9 = scene.add.text(400, y + spacing * 12, '100% = PERFECTA (doble daño + cura)', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t9);
-  const t10 = scene.add.text(400, y + spacing * 12, '80%+ = Aturdimiento', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  const t10 = scene.add.text(400, y + spacing * 13, '80%+ = Aturdimiento', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t10);
-  const t11 = scene.add.text(400, y + spacing * 13, 'Combos aumentan daño', { fontSize: '16px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t11 = scene.add.text(400, y + spacing * 14, 'Combos aumentan daño', { fontSize: '16px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t11);
   
   const continueText = scene.add.text(400, 540, 'Presiona ESPACIO para comenzar', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setVisible(true);
@@ -273,43 +293,66 @@ function update(time, delta) {
       createTutorial(this);
     }
   } else if (gameState === 'player_turn' || gameState === 'ai_turn') {
-    // Draw birds (always visible in gameplay)
-    drawBird(this.graphics, 150, 300, 50, 0x8b4513, true, 1);
-    drawBird(this.graphics, 650, 300, 50, 0x654321, false, -1);
+    // Draw birds (always visible in gameplay) - positioned in center area
+    drawBird(this.graphics, 150, 200, 50, 0x8b4513, true, 1);
+    drawBird(this.graphics, 650, 200, 50, 0x654321, false, -1);
 
-    // Instructions background rect (always visible in gameplay)
-    this.graphics.fillStyle(0x000000, 0.5);
-    this.graphics.fillRect(200, 480, 400, 80);
-    this.graphics.lineStyle(1, 0xffff00, 1);
-    this.graphics.strokeRect(200, 480, 400, 80);
-
-    // Instructions text (always visible in gameplay)
-    if (!this.instructionsText || !this.instructionsText.active) {
-      this.instructionsText = this.add.text(380, 530, 'W: Tono (coincide con Viento/Aves)\nA: Ritmo | S/D: Duración\nESPACIO: Atacar\n💡 Mayor armonía = Más daño', { fontSize: '13px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
-    }
-    this.instructionsText.setVisible(true);
-
-    // Environmental tones (always visible in gameplay)
-    this.windText.setText('Viento: ' + environmentalTones.wind).setVisible(true);
-    this.birdsText.setText('Aves: ' + environmentalTones.birds).setVisible(true);
-    this.scoreText.setText('Puntos: ' + score).setVisible(true);
+    // Environmental tones - compact display
+    this.windText.setText('🌬️ ' + environmentalTones.wind).setVisible(true);
+    this.birdsText.setText('🐦 ' + environmentalTones.birds).setVisible(true);
+    
+    // Score only shown during gameplay (not cluttering defeat/victory)
+    this.scoreText.setText(score).setVisible(true);
 
     if (gameState === 'player_turn') {
-      this.turnText.setText('Turno ' + turnCount + ' - Jugador').setColor('#00ff00').setVisible(true);
+      this.turnText.setText('Turno ' + turnCount).setColor('#00ff00').setVisible(true).setPosition(400, 30);
+      
+      // Update harmony in real-time
+      calculateHarmony();
 
-      // Melody UI (only in player turn)
-      this.pitchText.setText('Tono: ' + PITCHES[selectedMelody.pitch]).setVisible(true);
-      this.rhythmText.setText('Ritmo: ' + RHYTHMS[selectedMelody.rhythm]).setVisible(true);
-      this.durationText.setText('Duración: ' + DURATIONS[selectedMelody.duration]).setVisible(true);
-      this.harmonyText.setText('Armonía: ' + harmonyMeter + '%').setVisible(true);
+      // Simplified tone selector - more compact, at bottom
+      drawToneSelector(this.graphics, 100, 480, 600, 25, selectedMelody.pitch);
+      
+      // Tone labels directly on selector
+      const pitchWidth = 600 / PITCHES.length;
+      for (let i = 0; i < PITCHES.length; i++) {
+        const px = 100 + i * pitchWidth + pitchWidth / 2;
+        const labelColor = (PITCHES[i] === environmentalTones.wind || PITCHES[i] === environmentalTones.birds) ? '#ffffff' : '#888888';
+        if (!this.toneLabels) this.toneLabels = [];
+        if (!this.toneLabels[i]) {
+          this.toneLabels[i] = this.add.text(px, 492, PITCHES[i], { fontSize: '11px', color: labelColor }).setOrigin(0.5);
+        } else {
+          this.toneLabels[i].setText(PITCHES[i]).setColor(labelColor).setVisible(true);
+        }
+      }
+
+      // Compact melody info in one line (above selector)
+      const melodyInfo = PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
+      if (!this.melodyInfoText) {
+        this.melodyInfoText = this.add.text(400, 455, melodyInfo, { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+      } else {
+        this.melodyInfoText.setText(melodyInfo).setVisible(true);
+      }
+      
+      // Harmony text (compact, near harmony bar)
+      let harmonyColor = '#ff6666'; // Light red for low
+      if (harmonyMeter >= 80) harmonyColor = '#ff00ff'; // Magenta for high
+      else if (harmonyMeter >= 60) harmonyColor = '#ffff00'; // Yellow for medium-high
+      else if (harmonyMeter >= 30) harmonyColor = '#66ff66'; // Light green for medium
+      
+      this.harmonyText.setText(harmonyMeter + '%').setColor(harmonyColor).setVisible(true).setPosition(300, 70);
 
       turnTimer -= delta;
-      this.timerText.setText('Tiempo: ' + Math.ceil(turnTimer / 1000) + 's').setVisible(true);
+      this.timerText.setText(Math.ceil(turnTimer / 1000) + 's').setVisible(true).setPosition(500, 70);
 
-      // Timer bar
+      // Compact timer bar (inline with harmony)
       this.graphics.fillStyle(0x00ffff, 1);
-      this.graphics.fillRect(350, 140, (turnTimer / 7000) * 100, 10);
-      this.graphics.strokeRect(350, 140, 100, 10);
+      this.graphics.fillRect(350, 85, (turnTimer / 7000) * 100, 6);
+      this.graphics.lineStyle(1, 0x00ffff, 1);
+      this.graphics.strokeRect(350, 85, 100, 6);
+      
+      // Instructions at very bottom
+      this.instructionsText.setVisible(true).setPosition(400, 560);
 
       if (turnTimer <= 0) {
         // Auto random
@@ -323,36 +366,68 @@ function update(time, delta) {
         turnTimer = 7000;
       }
     } else if (gameState === 'ai_turn') {
-      this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000').setVisible(true);
+      this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000').setVisible(true).setPosition(400, 30);
       // Hide melody UI during AI turn
       this.pitchText.setVisible(false);
       this.rhythmText.setVisible(false);
       this.durationText.setVisible(false);
       this.harmonyText.setVisible(false);
       this.timerText.setVisible(false);
+      this.instructionsText.setVisible(false);
+      if (this.toneLabels) this.toneLabels.forEach(l => l.setVisible(false));
+      if (this.matchText) this.matchText.setVisible(false);
+      if (this.legendText) this.legendText.setVisible(false);
+      if (this.melodyInfoText) this.melodyInfoText.setVisible(false);
     }
+  }
+
+  // Hide ALL gameplay UI during victory/defeat
+  if (gameState === 'victory' || gameState === 'defeat') {
+    this.turnText.setVisible(false);
+    this.harmonyText.setVisible(false);
+    this.pitchText.setVisible(false);
+    this.rhythmText.setVisible(false);
+    this.durationText.setVisible(false);
+    this.windText.setVisible(false);
+    this.birdsText.setVisible(false);
+    this.scoreText.setVisible(false);
+    this.timerText.setVisible(false);
+    this.instructionsText.setVisible(false);
+    this.feedbackText.setVisible(false);
+    if (this.toneLabels) this.toneLabels.forEach(l => l.setVisible(false));
+    if (this.matchText) this.matchText.setVisible(false);
+    if (this.legendText) this.legendText.setVisible(false);
+    if (this.melodyInfoText) this.melodyInfoText.setVisible(false);
   }
 
   // Only show gameplay UI during actual gameplay
   if (gameState === 'player_turn' || gameState === 'ai_turn') {
-    // Player health bar
+    // Player health bar (top left)
     this.graphics.fillStyle(0x00ff00, 1);
-    this.graphics.fillRect(50, 20, (playerHealth / 100) * 150, 15);
+    this.graphics.fillRect(50, 10, (playerHealth / 100) * 150, 12);
     this.graphics.lineStyle(1, 0xffffff, 1);
-    this.graphics.strokeRect(50, 20, 150, 15);
+    this.graphics.strokeRect(50, 10, 150, 12);
+    this.playerHPText.setText(playerHealth + '/100').setVisible(true).setPosition(50, 10);
 
-    // AI health bar
+    // AI health bar (top right)
     this.graphics.fillStyle(0xff0000, 1);
-    this.graphics.fillRect(600, 20, (aiHealth / 100) * 150, 15);
-    this.graphics.strokeRect(600, 20, 150, 15);
+    this.graphics.fillRect(600, 10, (aiHealth / 100) * 150, 12);
+    this.graphics.strokeRect(600, 10, 150, 12);
+    this.aiHPText.setText(aiHealth + '/100').setVisible(true).setPosition(750, 10);
 
-    // Harmony meter bar
+    // Harmony meter bar (centered, below turn text)
     this.graphics.fillStyle(0xffff00, 1);
-    this.graphics.fillRect(350, 120, (harmonyMeter / 100) * 100, 10);
-    this.graphics.strokeRect(350, 120, 100, 10);
+    this.graphics.fillRect(350, 70, (harmonyMeter / 100) * 100, 8);
+    this.graphics.lineStyle(1, 0xffff00, 1);
+    this.graphics.strokeRect(350, 70, 100, 8);
+    
+    // Compact score at top center
+    this.scoreText.setPosition(400, 10).setVisible(true);
 
-    this.playerHPText.setText('HP Jugador: ' + playerHealth).setVisible(true);
-    this.aiHPText.setText('HP IA: ' + aiHealth).setVisible(true);
+    // Wind/Birds positioned near selector
+    this.windText.setPosition(100, 420).setVisible(true);
+    this.birdsText.setPosition(700, 420).setVisible(true);
+
     this.feedbackText.setVisible(false); // Only show when harmony is played
   } else {
     this.feedbackText.setVisible(false);
@@ -366,6 +441,9 @@ function update(time, delta) {
     this.playerHPText.setVisible(false);
     this.aiHPText.setVisible(false);
     this.timerText.setVisible(false);
+    if (this.toneLabels) this.toneLabels.forEach(l => l.setVisible(false));
+    if (this.matchText) this.matchText.setVisible(false);
+    if (this.legendText) this.legendText.setVisible(false);
   }
 
   // Note: These texts recreate each frame—optimize by creating once if needed, but fine for now.
@@ -375,7 +453,7 @@ const FREQUENCIES = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00
 
 let environmentalTones = { wind: '', birds: '' };
 let harmonyMeter = 0;
-let turnTimer = 7000; // Faster: 7 seconds
+let turnTimer = 15000; // 15 seconds
 let combo = 0;
 let score = 0;
 let lastHarmony = 0;
@@ -404,6 +482,42 @@ function calculateHarmony() {
   if (RHYTHMS[selectedMelody.rhythm] === 'quarter') harmonyMeter += 20;
   if (DURATIONS[selectedMelody.duration] === 'medium') harmonyMeter += 20;
   harmonyMeter = Math.min(100, harmonyMeter);
+}
+
+function drawToneSelector(graphics, x, y, width, height, selectedIdx) {
+  const pitchWidth = width / PITCHES.length;
+  const matchWind = PITCHES.indexOf(environmentalTones.wind);
+  const matchBirds = PITCHES.indexOf(environmentalTones.birds);
+  
+  for (let i = 0; i < PITCHES.length; i++) {
+    const px = x + i * pitchWidth;
+    let color = 0x333333; // Gray default
+    let borderColor = 0x666666;
+    
+    // Highlight matching tones
+    if (i === matchWind && i === matchBirds) {
+      color = 0x00ff00; // Green - matches both
+      borderColor = 0xffffff;
+    } else if (i === matchWind) {
+      color = 0x0088ff; // Cyan - matches wind
+      borderColor = 0x00ffff;
+    } else if (i === matchBirds) {
+      color = 0xff8800; // Orange - matches birds
+      borderColor = 0xffaa00;
+    }
+    
+    // Highlight selected tone
+    if (i === selectedIdx) {
+      borderColor = 0xffff00;
+      graphics.lineStyle(3, borderColor, 1);
+    } else {
+      graphics.lineStyle(1, borderColor, 1);
+    }
+    
+    graphics.fillStyle(color, 0.8);
+    graphics.fillRect(px, y, pitchWidth - 2, height);
+    graphics.strokeRect(px, y, pitchWidth - 2, height);
+  }
 }
 
 function applyEffects(scene) {
