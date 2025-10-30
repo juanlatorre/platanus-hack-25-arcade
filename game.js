@@ -37,77 +37,76 @@ function preload() {
 
 // Replace existing drawBird with refined version based on illustration
 
-function drawBird(graphics, x, y, size, bodyColor, isZarapito = false) {
+function drawBird(graphics, x, y, size, bodyColor, isZarapito = false, facing = 1) {
   // Elongated neck and head
-  graphics.fillStyle(bodyColor, 1); // Main brown: 0x8b4513
-  graphics.fillEllipse(x, y - size * 0.3, size * 0.15, size * 0.4); // Neck
-  graphics.fillCircle(x, y - size * 0.55, size * 0.18); // Head
+  graphics.fillStyle(bodyColor, 1);
+  graphics.fillEllipse(x + facing * size * 0, y - size * 0.3, size * 0.15, size * 0.4); // Neck (centered)
+  graphics.fillCircle(x + facing * size * 0, y - size * 0.55, size * 0.18); // Head (centered for mirror)
 
   // Slender body with white underbelly
   graphics.fillStyle(bodyColor, 1);
-  graphics.fillEllipse(x, y, size * 0.35, size * 0.7); // Body
-  graphics.fillStyle(0xf5f5f5, 1); // White under
+  graphics.fillEllipse(x, y, size * 0.35, size * 0.7);
+  graphics.fillStyle(0xf5f5f5, 1);
   graphics.fillEllipse(x, y + size * 0.2, size * 0.3, size * 0.4);
 
-  // Mottled plumage (random white specks on brown)
+  // Mottled plumage (adjust spots x by facing)
   graphics.fillStyle(0xf5f5f5, 0.8);
   for (let i = 0; i < 30; i++) {
-    const spotX = x + (Math.random() - 0.5) * size * 0.35;
-    const spotY = y + (Math.random() - 0.5) * size * 0.7 - size * 0.1; // Mostly on upper body
+    const spotX = x + facing * ((Math.random() - 0.5) * size * 0.35);
+    const spotY = y + (Math.random() - 0.5) * size * 0.7 - size * 0.1;
     graphics.fillCircle(spotX, spotY, size * 0.015 + Math.random() * size * 0.02);
   }
 
-  // Head with bold dark stripes (eye line and crown)
+  // Head with bold dark stripes (mirror x)
   graphics.fillStyle(0x000000, 0.6);
-  graphics.fillRect(x - size * 0.1, y - size * 0.6, size * 0.35, size * 0.03); // Crown stripe
-  graphics.fillRect(x - size * 0.05, y - size * 0.55, size * 0.3, size * 0.025); // Eye stripe
+  graphics.fillRect(x + facing * (-size * 0.1), y - size * 0.6, size * 0.35, size * 0.03);
+  graphics.fillRect(x + facing * (-size * 0.05), y - size * 0.55, size * 0.3, size * 0.025);
 
-  // Dark eye
+  // Dark eye (mirror x)
   graphics.fillStyle(0x000000, 1);
-  graphics.fillCircle(x + size * 0.05, y - size * 0.55, size * 0.025);
+  graphics.fillCircle(x + facing * size * 0.05, y - size * 0.55, size * 0.025);
 
-  // Long decurved beak (fallback to line segments for compatibility)
+  // Long decurved beak (mirror direction)
   graphics.lineStyle(size * 0.025, 0x333333, 1);
   graphics.beginPath();
-  graphics.moveTo(x + size * 0.15, y - size * 0.5);
-  graphics.lineTo(x + size * 0.3, y - size * 0.45); // Start curve
-  graphics.lineTo(x + size * 0.42, y - size * 0.35); // Mid curve
-  graphics.lineTo(x + size * 0.48, y - size * 0.2); // Peak curve
-  graphics.lineTo(x + size * 0.45, y); // End downward
+  graphics.moveTo(x + facing * size * 0.15, y - size * 0.5);
+  graphics.lineTo(x + facing * size * 0.3, y - size * 0.45);
+  graphics.lineTo(x + facing * size * 0.42, y - size * 0.35);
+  graphics.lineTo(x + facing * size * 0.48, y - size * 0.2);
+  graphics.lineTo(x + facing * size * 0.45, y);
   graphics.strokePath();
 
-  // Pointed folded wings with feather details
+  // Pointed folded wings with feather details (mirror x)
   graphics.fillStyle(bodyColor, 0.9);
   graphics.beginPath();
-  graphics.moveTo(x - size * 0.15, y - size * 0.1); // Base
-  graphics.lineTo(x - size * 0.35, y + size * 0.15); // Point
-  graphics.lineTo(x - size * 0.1, y + size * 0.25); // Bottom
+  graphics.moveTo(x + facing * (-size * 0.15), y - size * 0.1);
+  graphics.lineTo(x + facing * (-size * 0.35), y + size * 0.15);
+  graphics.lineTo(x + facing * (-size * 0.1), y + size * 0.25);
   graphics.closePath();
   graphics.fillPath();
-  // Feather lines
   graphics.lineStyle(size * 0.01, 0x000000, 0.3);
-  graphics.lineBetween(x - size * 0.15, y - size * 0.1, x - size * 0.35, y + size * 0.15);
-  graphics.lineBetween(x - size * 0.2, y, x - size * 0.3, y + size * 0.1);
+  graphics.lineBetween(x + facing * (-size * 0.15), y - size * 0.1, x + facing * (-size * 0.35), y + size * 0.15);
+  graphics.lineBetween(x + facing * (-size * 0.2), y, x + facing * (-size * 0.3), y + size * 0.1);
 
-  // Long legs with three-toed feet
-  graphics.fillStyle(0x808080, 1); // Gray legs
-  graphics.fillRect(x - size * 0.05, y + size * 0.35, size * 0.02, size * 0.45); // Left leg
-  graphics.fillRect(x + size * 0.05, y + size * 0.35, size * 0.02, size * 0.45); // Right leg
-  // Feet (simple three toes)
+  // Long legs with three-toed feet (mirror x for feet)
   graphics.fillStyle(0x808080, 1);
-  // Left foot
-  graphics.fillTriangle(x - size * 0.1, y + size * 0.8, x - size * 0.05, y + size * 0.8, x - size * 0.075, y + size * 0.85); // Middle toe
-  graphics.fillRect(x - size * 0.12, y + size * 0.8, size * 0.04, size * 0.01); // Left toe
-  graphics.fillRect(x - size * 0.03, y + size * 0.8, size * 0.04, size * 0.01); // Right toe
-  // Right foot (similar)
-  graphics.fillTriangle(x, y + size * 0.8, x + size * 0.05, y + size * 0.8, x + size * 0.025, y + size * 0.85);
-  graphics.fillRect(x - size * 0.02, y + size * 0.8, size * 0.04, size * 0.01);
-  graphics.fillRect(x + size * 0.07, y + size * 0.8, size * 0.04, size * 0.01);
+  graphics.fillRect(x + facing * (-size * 0.05), y + size * 0.35, size * 0.02, size * 0.45);
+  graphics.fillRect(x + facing * size * 0.05, y + size * 0.35, size * 0.02, size * 0.45);
+  graphics.fillStyle(0x808080, 1);
+  // Left foot (adjust for facing)
+  let leftX = x + facing * (-size * 0.05);
+  graphics.fillTriangle(leftX + facing * (-size * 0.05), y + size * 0.8, leftX, y + size * 0.8, leftX + facing * (-size * 0.025), y + size * 0.85);
+  graphics.fillRect(leftX + facing * (-size * 0.07), y + size * 0.8, size * 0.04, size * 0.01);
+  graphics.fillRect(leftX + facing * size * 0.02, y + size * 0.8, size * 0.04, size * 0.01);
+  // Right foot similar, mirrored
+  let rightX = x + facing * size * 0.05;
+  graphics.fillTriangle(rightX + facing * (-size * 0.05), y + size * 0.8, rightX, y + size * 0.8, rightX + facing * (-size * 0.025), y + size * 0.85);
+  graphics.fillRect(rightX + facing * (-size * 0.07), y + size * 0.8, size * 0.04, size * 0.01);
+  graphics.fillRect(rightX + facing * size * 0.02, y + size * 0.8, size * 0.04, size * 0.01);
 
   if (isZarapito) {
-    // Special marking, e.g., red crest for distinction
     graphics.fillStyle(0xff0000, 1);
-    graphics.fillTriangle(x + size * 0.05, y - size * 0.65, x + size * 0.1, y - size * 0.7, x + size * 0.15, y - size * 0.65);
+    graphics.fillTriangle(x + facing * size * 0.05, y - size * 0.65, x + facing * size * 0.1, y - size * 0.7, x + facing * size * 0.15, y - size * 0.65);
   }
 }
 
@@ -149,6 +148,10 @@ function create() {
     if (gameState === 'player_turn') selectedMelody.duration = (selectedMelody.duration + 1) % DURATIONS.length;
   });
 
+  this.input.keyboard.on('keydown-D', () => {
+    if (gameState === 'player_turn') selectedMelody.duration = (selectedMelody.duration - 1 + DURATIONS.length) % DURATIONS.length;
+  });
+
   this.turnText = this.add.text(400, 50, '', { fontSize: '24px', color: '#00ff00' }).setOrigin(0.5).setVisible(false);
 
   // Generate initial tones
@@ -160,7 +163,7 @@ function create() {
   this.durationText = this.add.text(500, 420, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.harmonyText = this.add.text(400, 100, 'Harmony: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
 
-  this.instructionsText = this.add.text(400, 520, 'W: Cycle Pitch (match tones!)\nA: Cycle Rhythm\nS: Cycle Duration\nSPACE: Play Harmony', { fontSize: '14px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
+  this.instructionsText = this.add.text(380, 530, 'W: Cycle Pitch (match tones!)\nA: Cycle Rhythm\nS: Duration + | D: Duration -\nSPACE: Play Harmony', { fontSize: '14px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
   this.windText = this.add.text(100, 150, '', { fontSize: '16px', color: '#00ffff' }).setVisible(false);
   this.birdsText = this.add.text(700, 150, '', { fontSize: '16px', color: '#ff8800' }).setVisible(false);
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
@@ -195,8 +198,8 @@ function create() {
 function drawMenu(scene) {
   console.log('Drawing bird - graphics defined:', !!scene.graphics);
   // Decorative birds
-  drawBird(scene.graphics, 200, 400, 25, 0x8b4513);
-  drawBird(scene.graphics, 600, 400, 25, 0xff00ff, true);
+  drawBird(scene.graphics, 200, 400, 25, 0x8b4513, false, 1);
+  drawBird(scene.graphics, 600, 400, 25, 0x654321, true, -1);
 }
 
 function update() {
@@ -208,8 +211,8 @@ function update() {
     this.turnText.setVisible(false);
   } else if (gameState === 'player_turn') {
     console.log('Drawing bird - graphics defined:', !!this.graphics);
-    drawBird(this.graphics, 150, 300, 50, 0x8b4513, true);
-    drawBird(this.graphics, 650, 300, 50, 0x654321);
+    drawBird(this.graphics, 150, 300, 50, 0x8b4513, true, 1);
+    drawBird(this.graphics, 650, 300, 50, 0x654321, false, -1);
     this.turnText.setText('Player Turn ' + turnCount).setColor('#00ff00').setVisible(true);
 
     // Melody UI
@@ -226,7 +229,7 @@ function update() {
 
     // Instructions text (re-add if destroyed, at y=530)
     if (!this.instructionsText || !this.instructionsText.active) {
-      this.instructionsText = this.add.text(400, 530, 'W: Cycle Pitch (match tones!)\nA: Cycle Rhythm\nS: Cycle Duration\nSPACE: Play Harmony', { fontSize: '14px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
+      this.instructionsText = this.add.text(400, 530, 'W: Cycle Pitch (match tones!)\nA: Cycle Rhythm\nS: Duration + | D: Duration -\nSPACE: Play Harmony', { fontSize: '14px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
     }
     this.instructionsText.setVisible(true);
     console.log('Instructions visible');
