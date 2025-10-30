@@ -830,8 +830,8 @@ function playHarmony(scene) {
   if (DURATIONS[selectedMelody.duration] === 'Breve') durationSec = 0.3;
   else if (DURATIONS[selectedMelody.duration] === 'Extendido') durationSec = 1.0;
 
-  playTone(scene, frequency, durationSec);
-  calculateHarmony();
+  calculateHarmony(); // Calculate harmony first to get the percentage
+  playHarmonySound(scene, harmonyMeter, pitch, durationSec);
   applyEffects(scene);
 }
 
@@ -1269,6 +1269,174 @@ function playTone(scene, freq, dur) {
   gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur);
   osc.start(ctx.currentTime);
   osc.stop(ctx.currentTime + dur);
+}
+
+function playHarmonySound(scene, harmonyPercent, pitch, duration) {
+  const ctx = scene.sound.context;
+  const baseFreq = FREQUENCIES[pitch];
+
+  if (harmonyPercent >= 100) {
+    // Perfect harmony - play a beautiful chord progression
+    playChordProgression(scene, baseFreq, duration);
+  } else if (harmonyPercent >= 80) {
+    // High harmony - play arpeggio
+    playArpeggio(scene, baseFreq, duration);
+  } else if (harmonyPercent >= 60) {
+    // Good harmony - play chord with some embellishment
+    playChord(scene, baseFreq, duration);
+  } else {
+    // Poor harmony - just play single note with some noise
+    playSingleNoteWithEffect(scene, baseFreq, duration);
+  }
+}
+
+function playChord(scene, baseFreq, duration) {
+  const ctx = scene.sound.context;
+  const chordFreqs = [baseFreq, baseFreq * 1.25, baseFreq * 1.5]; // Major chord
+
+  chordFreqs.forEach((freq, index) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.frequency.value = freq;
+    osc.type = index === 0 ? 'sine' : 'triangle'; // Mix waveforms
+
+    const delay = index * 0.05; // Slight stagger
+    gain.gain.setValueAtTime(0.1, ctx.currentTime + delay);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + duration);
+
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + duration);
+  });
+}
+
+function playArpeggio(scene, baseFreq, duration) {
+  const ctx = scene.sound.context;
+  const arpeggio = [baseFreq, baseFreq * 1.189, baseFreq * 1.5, baseFreq * 1.189]; // Up and down
+  const noteDuration = duration / arpeggio.length;
+
+  arpeggio.forEach((freq, index) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+
+    const startTime = ctx.currentTime + (index * noteDuration);
+    gain.gain.setValueAtTime(0.12, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, startTime + noteDuration * 0.8);
+
+    osc.start(startTime);
+    osc.stop(startTime + noteDuration);
+  });
+}
+
+function playChordProgression(scene, baseFreq, duration) {
+  const ctx = scene.sound.context;
+  const progression = [
+    [baseFreq, baseFreq * 1.25, baseFreq * 1.5],     // I
+    [baseFreq * 1.189, baseFreq * 1.5, baseFreq * 1.875], // IV
+    [baseFreq * 1.333, baseFreq * 1.667, baseFreq * 2]   // V
+  ];
+
+  const chordDuration = duration / progression.length;
+
+  progression.forEach((chord, chordIndex) => {
+    chord.forEach((freq, noteIndex) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.frequency.value = freq;
+      osc.type = noteIndex === 0 ? 'sine' : 'triangle';
+
+      const startTime = ctx.currentTime + (chordIndex * chordDuration) + (noteIndex * 0.02);
+      gain.gain.setValueAtTime(0.08, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.005, startTime + chordDuration * 0.9);
+
+      osc.start(startTime);
+      osc.stop(startTime + chordDuration);
+    });
+  });
+
+  // Add some sparkle effect
+  addSparkleEffect(scene, baseFreq * 2, duration);
+}
+
+function playSingleNoteWithEffect(scene, freq, duration) {
+  const ctx = scene.sound.context;
+
+  // Main note
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.frequency.value = freq;
+  osc.type = 'sawtooth'; // More aggressive sound
+  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + duration);
+
+  // Add some noise for poor harmony
+  addNoiseEffect(scene, duration);
+}
+
+function addSparkleEffect(scene, freq, duration) {
+  const ctx = scene.sound.context;
+
+  // High sparkle notes
+  const sparkleNotes = [freq, freq * 1.189, freq * 1.333];
+  const noteDuration = 0.1;
+
+  sparkleNotes.forEach((noteFreq, index) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.frequency.value = noteFreq;
+    osc.type = 'sine';
+
+    const startTime = ctx.currentTime + (index * 0.15);
+    gain.gain.setValueAtTime(0.05, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + noteDuration);
+
+    osc.start(startTime);
+    osc.stop(startTime + noteDuration);
+  });
+}
+
+function addNoiseEffect(scene, duration) {
+  const ctx = scene.sound.context;
+
+  // Create noise buffer
+  const bufferSize = ctx.sampleRate * duration;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const output = buffer.getChannelData(0);
+
+  for (let i = 0; i < bufferSize; i++) {
+    output[i] = Math.random() * 2 - 1; // White noise
+  }
+
+  const noiseSource = ctx.createBufferSource();
+  const gainNode = ctx.createGain();
+
+  noiseSource.buffer = buffer;
+  noiseSource.connect(gainNode);
+  gainNode.connect(ctx.destination);
+
+  gainNode.gain.setValueAtTime(0.02, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+
+  noiseSource.start(ctx.currentTime);
 }
 
 function animateAttack(scene, graphics, fromX, fromY, toX, toY, strength, combo = 0) {
