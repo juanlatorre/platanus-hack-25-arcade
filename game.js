@@ -599,6 +599,7 @@ function update(time, delta) {
     if (this.birdsText) this.birdsText.setVisible(false);
     if (this.scoreText) this.scoreText.setVisible(false);
     if (this.timerText) this.timerText.setVisible(false);
+    if (this.timerIcon) this.timerIcon.setVisible(false);
     if (this.instructionsText) this.instructionsText.setVisible(false);
     // Show tutorial texts
     if (this.tutorialTexts && this.tutorialTexts.length > 0) {
@@ -726,11 +727,41 @@ function update(time, delta) {
       turnTimer -= delta;
       this.timerText.setText(Math.ceil(turnTimer / 1000) + 's').setVisible(true).setPosition(500, 70);
 
-      // Compact timer bar (inline with harmony)
-      this.graphics.fillStyle(0x00ffff, 1);
-      this.graphics.fillRect(350, 85, (turnTimer / 7000) * 100, 6);
-      this.graphics.lineStyle(1, 0x00ffff, 1);
-      this.graphics.strokeRect(350, 85, 100, 6);
+      // Enhanced timer bar - more visible and clear
+      const timerBarWidth = 120;
+      const timerBarHeight = 12;
+      const timerBarX = 340;
+      const timerBarY = 95;
+
+      // Timer icon
+      if (!this.timerIcon) {
+        this.timerIcon = this.add.text(timerBarX - 25, timerBarY - 2, '⏰', { fontSize: '14px' });
+      }
+      this.timerIcon.setVisible(true).setPosition(timerBarX - 25, timerBarY - 2);
+
+      // Background bar (gray)
+      this.graphics.fillStyle(0x333333, 0.8);
+      this.graphics.fillRect(timerBarX, timerBarY, timerBarWidth, timerBarHeight);
+
+      // Timer progress bar with color changes
+      let timerColor = 0x00ff00; // Green by default
+      if (turnTimer < 3000) timerColor = 0xff0000; // Red when < 3 seconds
+      else if (turnTimer < 7000) timerColor = 0xffff00; // Yellow when < 7 seconds
+
+      const progressWidth = (turnTimer / 15000) * timerBarWidth;
+      this.graphics.fillStyle(timerColor, 1);
+      this.graphics.fillRect(timerBarX, timerBarY, progressWidth, timerBarHeight);
+
+      // Border
+      this.graphics.lineStyle(2, 0xffffff, 1);
+      this.graphics.strokeRect(timerBarX, timerBarY, timerBarWidth, timerBarHeight);
+
+      // Pulsing effect when time is low
+      if (turnTimer < 3000) {
+        const pulseAlpha = (Math.sin(this.time.now / 100) + 1) / 2 * 0.3 + 0.7;
+        this.graphics.fillStyle(0xff0000, pulseAlpha);
+        this.graphics.fillRect(timerBarX, timerBarY, progressWidth, timerBarHeight);
+      }
       
       // Instructions at very bottom
       this.instructionsText.setVisible(true).setPosition(400, 560);
@@ -763,6 +794,7 @@ function update(time, delta) {
       this.durationText.setVisible(false);
       this.harmonyText.setVisible(false);
       this.timerText.setVisible(false);
+      if (this.timerIcon) this.timerIcon.setVisible(false);
       this.instructionsText.setVisible(false);
       if (this.toneLabels) this.toneLabels.forEach(l => l.setVisible(false));
       if (this.matchText) this.matchText.setVisible(false);
@@ -785,6 +817,7 @@ function update(time, delta) {
     this.birdsText.setVisible(false);
     this.scoreText.setVisible(false);
     this.timerText.setVisible(false);
+    if (this.timerIcon) this.timerIcon.setVisible(false);
     this.instructionsText.setVisible(false);
     this.feedbackText.setVisible(false);
     if (this.toneLabels) this.toneLabels.forEach(l => l.setVisible(false));
@@ -842,6 +875,7 @@ function update(time, delta) {
     this.playerHPText.setVisible(false);
     this.aiHPText.setVisible(false);
     this.timerText.setVisible(false);
+    if (this.timerIcon) this.timerIcon.setVisible(false);
     if (this.toneLabels) this.toneLabels.forEach(l => l.setVisible(false));
     if (this.matchText) this.matchText.setVisible(false);
     if (this.legendText) this.legendText.setVisible(false);
