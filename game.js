@@ -151,6 +151,31 @@ function create() {
 
   this.turnText = this.add.text(400, 50, '', { fontSize: '24px', color: '#00ff00' }).setOrigin(0.5).setVisible(false);
 
+  // Generate initial tones
+  generateTones();
+
+  // Melody UI texts (create once)
+  this.pitchText = this.add.text(100, 500, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
+  this.rhythmText = this.add.text(300, 500, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
+  this.durationText = this.add.text(500, 500, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
+  this.harmonyText = this.add.text(400, 100, 'Harmony: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
+
+  // Add SPACE to play harmony
+  this.input.keyboard.on('keydown-SPACE', () => {
+    if (gameState === 'menu') {
+      gameState = 'player_turn';
+      turnCount = 1;
+      this.menuTexts.forEach(text => text.destroy()); // Clear menu
+      this.turnText.setVisible(true);
+    }
+    else if (gameState === 'player_turn') {
+      playHarmony(this);
+      gameState = 'ai_turn';
+      this.turnText.setText('AI Turn ' + turnCount).setColor('#ff0000');
+      this.time.delayedCall(1000, () => aiPlay(this));
+    }
+  });
+
   console.log('Create called'); // Debug
 }
 
@@ -175,9 +200,10 @@ function update() {
     this.turnText.setText('Player Turn ' + turnCount).setColor('#00ff00').setVisible(true);
 
     // Melody UI
-    this.add.text(100, 500, 'Pitch: ' + PITCHES[selectedMelody.pitch], { fontSize: '16px', color: '#ffffff' });
-    this.add.text(300, 500, 'Rhythm: ' + RHYTHMS[selectedMelody.rhythm], { fontSize: '16px', color: '#ffffff' });
-    this.add.text(500, 500, 'Duration: ' + DURATIONS[selectedMelody.duration], { fontSize: '16px', color: '#ffffff' });
+    this.pitchText.setText('Pitch: ' + PITCHES[selectedMelody.pitch]).setVisible(true);
+    this.rhythmText.setText('Rhythm: ' + RHYTHMS[selectedMelody.rhythm]).setVisible(true);
+    this.durationText.setText('Duration: ' + DURATIONS[selectedMelody.duration]).setVisible(true);
+    this.harmonyText.setText('Harmony: ' + harmonyMeter + '%').setVisible(true);
 
     // Note: Texts recreate each frame—optimize later by creating once and updating text.
     console.log('Rendering player turn');
@@ -188,4 +214,84 @@ function update() {
 
   console.log('Update loop running, state: ' + gameState);
   console.log('Update: state=' + gameState); // Debug
+}
+
+const FREQUENCIES = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88, C5: 523.25 };
+
+let environmentalTones = { wind: '', birds: '' };
+let harmonyMeter = 0;
+
+function generateTones() {
+  environmentalTones.wind = PITCHES[Math.floor(Math.random() * PITCHES.length)];
+  environmentalTones.birds = PITCHES[Math.floor(Math.random() * PITCHES.length)];
+}
+
+function playHarmony(scene) {
+  const pitch = PITCHES[selectedMelody.pitch];
+  const frequency = FREQUENCIES[pitch];
+  let durationSec = 0.5;
+  if (DURATIONS[selectedMelody.duration] === 'short') durationSec = 0.3;
+  else if (DURATIONS[selectedMelody.duration] === 'long') durationSec = 1.0;
+
+  playTone(scene, frequency, durationSec);
+  calculateHarmony();
+  applyEffects(scene);
+}
+
+function calculateHarmony() {
+  harmonyMeter = 0;
+  if (PITCHES[selectedMelody.pitch] === environmentalTones.wind) harmonyMeter += 30;
+  if (PITCHES[selectedMelody.pitch] === environmentalTones.birds) harmonyMeter += 30;
+  if (RHYTHMS[selectedMelody.rhythm] === 'quarter') harmonyMeter += 20;
+  if (DURATIONS[selectedMelody.duration] === 'medium') harmonyMeter += 20;
+  harmonyMeter = Math.min(100, harmonyMeter);
+}
+
+function applyEffects(scene) {
+  const damage = Math.floor(harmonyMeter / 10);
+  if (gameState === 'player_turn') aiHealth -= damage;
+  else playerHealth -= damage;
+
+  // Special effects (simplified)
+  if (harmonyMeter >= 80) {
+    // Stun: skip next turn (placeholder: extra damage)
+    if (gameState === 'player_turn') aiHealth -= 5;
+    else playerHealth -= 5;
+  }
+  checkWinLose(scene);
+}
+
+function aiPlay(scene) {
+  selectedMelody.pitch = Math.floor(Math.random() * PITCHES.length);
+  selectedMelody.rhythm = Math.floor(Math.random() * RHYTHMS.length);
+  selectedMelody.duration = Math.floor(Math.random() * DURATIONS.length);
+  playHarmony(scene);
+  turnCount++;
+  generateTones();
+  gameState = 'player_turn';
+  scene.turnText.setText('Player Turn ' + turnCount).setColor('#00ff00');
+}
+
+function checkWinLose(scene) {
+  if (aiHealth <= 0) {
+    gameState = 'victory';
+    scene.add.text(400, 300, 'VICTORY!', { fontSize: '48px', color: '#00ff00' }).setOrigin(0.5);
+  } else if (playerHealth <= 0) {
+    gameState = 'defeat';
+    scene.add.text(400, 300, 'DEFEAT!', { fontSize: '48px', color: '#ff0000' }).setOrigin(0.5);
+  }
+}
+
+function playTone(scene, freq, dur) {
+  const ctx = scene.sound.context;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.frequency.value = freq;
+  osc.type = 'sine';
+  gain.gain.setValueAtTime(0.15, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + dur);
 }
