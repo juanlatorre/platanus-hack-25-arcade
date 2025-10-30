@@ -757,21 +757,21 @@ function applyEffects(scene) {
   if (gameState === 'player_turn') {
     // Animate player attack
     animateBirdAttack(scene, true);
-    // Animate AI hit
-    if (damage > 0) {
-      animateBirdHit(scene, false);
-    }
+    // Apply damage and animate AI hit
     aiHealth = Math.max(0, aiHealth - damage);
+    if (damage > 0) {
+      animateBirdHit(scene, false, damage, harmonyMeter);
+    }
     playerHealth = Math.min(100, playerHealth + healAmount);
     score += damage * 10 + (combo * 5) + (harmonyMeter === 100 ? 100 : 0);
   } else {
     // Animate AI attack
     animateBirdAttack(scene, false);
-    // Animate player hit
-    if (damage > 0) {
-      animateBirdHit(scene, true);
-    }
+    // Apply damage and animate player hit
     playerHealth = Math.max(0, playerHealth - damage);
+    if (damage > 0) {
+      animateBirdHit(scene, true, damage, harmonyMeter);
+    }
     aiHealth = Math.min(100, aiHealth + healAmount);
   }
 
@@ -795,14 +795,36 @@ function applyEffects(scene) {
   if (harmonyMeter >= 80) {
     const stunText = scene.add.text(400, 250, '¡ATURDIMIENTO!', { fontSize: '32px', color: '#ff00ff' }).setOrigin(0.5);
     scene.tweens.add({ targets: stunText, alpha: 0, y: stunText.y - 50, duration: 1000, onComplete: () => stunText.destroy() });
-    if (gameState === 'player_turn') aiHealth = Math.max(0, aiHealth - 3);
-    else playerHealth = Math.max(0, playerHealth - 3);
+    
+    // Apply stun damage and show number
+    if (gameState === 'player_turn') {
+      aiHealth = Math.max(0, aiHealth - 3);
+      const aiX = scene.aiBirdX ? scene.aiBirdX.value : 650;
+      const aiY = scene.aiBirdY ? scene.aiBirdY.value : 200;
+      // Show stun damage slightly offset
+      scene.time.delayedCall(200, () => {
+        showDamageNumber(scene, aiX + 20, aiY - 30, 3, false);
+      });
+    } else {
+      playerHealth = Math.max(0, playerHealth - 3);
+      const playerX = scene.playerBirdX ? scene.playerBirdX.value : 150;
+      const playerY = scene.playerBirdY ? scene.playerBirdY.value : 200;
+      // Show stun damage slightly offset
+      scene.time.delayedCall(200, () => {
+        showDamageNumber(scene, playerX - 20, playerY - 30, 3, false);
+      });
+    }
   }
   
-  // Heal feedback
-  if (healAmount > 0 && gameState === 'player_turn') {
-    const healText = scene.add.text(150, 250, '+' + healAmount + ' HP', { fontSize: '24px', color: '#00ff00' }).setOrigin(0.5);
-    scene.tweens.add({ targets: healText, alpha: 0, y: healText.y - 30, duration: 1000, onComplete: () => healText.destroy() });
+  // Heal feedback - show above the bird that gets healed
+  if (healAmount > 0) {
+    const birdX = gameState === 'player_turn' ? 
+      (scene.playerBirdX ? scene.playerBirdX.value : 150) : 
+      (scene.aiBirdX ? scene.aiBirdX.value : 650);
+    const birdY = gameState === 'player_turn' ? 
+      (scene.playerBirdY ? scene.playerBirdY.value : 200) : 
+      (scene.aiBirdY ? scene.aiBirdY.value : 200);
+    showHealNumber(scene, birdX, birdY, healAmount);
   }
   
   lastHarmony = harmonyMeter;
@@ -935,14 +957,81 @@ function animateBirdAttack(scene, isPlayer) {
   });
 }
 
-function animateBirdHit(scene, isPlayer) {
+function showDamageNumber(scene, x, y, damage, isCrit = false) {
+  // Create damage text with style
+  const damageText = scene.add.text(x, y - 50, '-' + damage, {
+    fontSize: isCrit ? '36px' : '28px',
+    color: isCrit ? '#ff00ff' : '#ff0000',
+    stroke: '#000000',
+    strokeThickness: 4,
+    fontStyle: 'bold'
+  }).setOrigin(0.5);
+  
+  // Animate: float up and fade out
+  scene.tweens.add({
+    targets: damageText,
+    y: y - 120,
+    alpha: 0,
+    scale: isCrit ? 1.5 : 1.2,
+    duration: 1200,
+    ease: 'Power2',
+    onComplete: () => {
+      damageText.destroy();
+    }
+  });
+  
+  // Add slight X drift for more natural look
+  const drift = (Math.random() - 0.5) * 30;
+  scene.tweens.add({
+    targets: damageText,
+    x: x + drift,
+    duration: 1200,
+    ease: 'Sine.easeOut'
+  });
+}
+
+function showHealNumber(scene, x, y, healAmount) {
+  // Create heal text with green color
+  const healText = scene.add.text(x, y - 60, '+' + healAmount, {
+    fontSize: '24px',
+    color: '#00ff00',
+    stroke: '#000000',
+    strokeThickness: 3,
+    fontStyle: 'bold'
+  }).setOrigin(0.5);
+  
+  // Animate: float up and fade out
+  scene.tweens.add({
+    targets: healText,
+    y: y - 100,
+    alpha: 0,
+    scale: 1.3,
+    duration: 1000,
+    ease: 'Power2',
+    onComplete: () => {
+      healText.destroy();
+    }
+  });
+}
+
+function animateBirdHit(scene, isPlayer, damage = 0, harmonyPercent = 0) {
   const birdX = isPlayer ? scene.playerBirdX : scene.aiBirdX;
+  const birdY = isPlayer ? scene.playerBirdY : scene.aiBirdY;
   const birdColor = isPlayer ? scene.playerBirdColor : scene.aiBirdColor;
   const baseX = isPlayer ? 150 : 650;
   const knockback = isPlayer ? -20 : 20;
   
   if (isPlayer) scene.isHit.player = true;
   else scene.isHit.ai = true;
+  
+  // Show damage number above bird
+  if (damage > 0) {
+    const currentX = birdX.value || baseX;
+    const currentY = birdY.value || 200;
+    // Critical hit detection: high harmony (90%+) or very high damage (15+)
+    const isCrit = damage >= 15 || harmonyPercent >= 90;
+    showDamageNumber(scene, currentX, currentY, damage, isCrit);
+  }
   
   // Knockback animation
   scene.tweens.add({
