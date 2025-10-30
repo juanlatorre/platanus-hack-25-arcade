@@ -168,7 +168,7 @@ function create() {
   this.menuTexts.push(subtitleText);
 
   // Start text
-  const startText = this.add.text(400, 350, 'Presiona ESPACIO para Iniciar', {
+  const startText = this.add.text(400, 350, 'Click para Jugar', {
     fontSize: '20px',
     color: '#00ff00'
   }).setOrigin(0.5);
@@ -238,22 +238,14 @@ function create() {
   // Add floating musical notes (created once)
   addMenuDecorations(this);
 
-  // Create clickable controls
-  createAttackButton(this);
-  createRhythmDurationControls(this);
-
-  // Tutorial texts
-  this.tutorialTexts = [];
-
-  // Keyboard input for SPACE (handles menu->tutorial->gameplay->restart)
-  this.input.keyboard.on('keydown-SPACE', () => {
-    if (gameState === 'menu') {
-      console.log('SPACE pressed in menu, transitioning to tutorial');
+  // Global click to start from menu and tutorial
+  this.input.on('pointerdown', (pointer, gameObjects) => {
+    if (gameState === 'menu' && gameObjects.length === 0) { // Only if clicking on empty space in menu
       gameState = 'tutorial';
       if (this.menuTexts) this.menuTexts.forEach(text => text.setVisible(false));
       createTutorial(this);
-      console.log('Tutorial created, state:', gameState, 'texts count:', this.tutorialTexts ? this.tutorialTexts.length : 0);
-    } else if (gameState === 'tutorial') {
+      console.log('Tutorial created, state:', gameState);
+    } else if (gameState === 'tutorial' && gameObjects.length === 0) { // Only if clicking on empty space in tutorial
       gameState = 'player_turn';
       turnCount = 1;
       turnTimer = 15000;
@@ -262,7 +254,22 @@ function create() {
       lastHarmony = 0;
       if (this.tutorialTexts) this.tutorialTexts.forEach(text => text.setVisible(false));
       this.turnText.setVisible(true);
-    } else if (gameState === 'victory' || gameState === 'defeat') {
+      // Start background music when gameplay begins
+      startBackgroundMusic(this);
+      console.log('Gameplay started from tutorial, state:', gameState);
+    }
+  });
+
+  // Create clickable controls
+  this.attackButton = createAttackButton(this);
+  createRhythmDurationControls(this);
+
+  // Tutorial texts
+  this.tutorialTexts = [];
+
+  // Keyboard input for SPACE (only works during gameplay)
+  this.input.keyboard.on('keydown-SPACE', () => {
+    if (gameState === 'victory' || gameState === 'defeat') {
       // Restart game
       resetGame(this);
     } else if (gameState === 'player_turn') {
@@ -551,8 +558,9 @@ function createTutorial(scene) {
   const t14 = scene.add.text(400, y + spacing * 17, 'Combos aumentan daño', { fontSize: '14px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t14);
   
-  const continueText = scene.add.text(400, 540, 'Presiona ESPACIO para comenzar', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setVisible(true);
+  const continueText = scene.add.text(400, 540, 'Haz click en cualquier lugar para comenzar', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(continueText);
+
   scene.tweens.add({ targets: continueText, alpha: { from: 1, to: 0.5 }, duration: 1000, yoyo: true, repeat: -1 });
   
   console.log('Tutorial creado, textos:', scene.tutorialTexts.length);
@@ -1377,7 +1385,10 @@ function checkWinLose(scene) {
     // Store references to texts for cleanup
     scene.victoryText = scene.add.text(400, 250, '¡VICTORIA!', { fontSize: '64px', color: '#00ff00', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
     scene.victoryScoreText = scene.add.text(400, 320, 'Puntos Finales: ' + score, { fontSize: '32px', color: '#00ffff' }).setOrigin(0.5);
-    scene.replayText = scene.add.text(400, 400, 'Presiona ESPACIO para jugar de nuevo', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5);
+    scene.replayText = scene.add.text(400, 400, 'Haz click para jugar de nuevo', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setInteractive();
+    scene.replayText.on('pointerdown', () => {
+      resetGame(scene);
+    });
     scene.tweens.add({ targets: scene.replayText, alpha: { from: 1, to: 0.5 }, duration: 1000, yoyo: true, repeat: -1 });
     scene.tweens.add({ targets: scene.victoryText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
     scene.cameras.main.shake(500, 0.03);
@@ -1390,7 +1401,10 @@ function checkWinLose(scene) {
     // Store references to texts for cleanup
     scene.defeatText = scene.add.text(400, 300, '¡DERROTA!', { fontSize: '64px', color: '#ff0000', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
     scene.defeatScoreText = scene.add.text(400, 370, 'Puntos Finales: ' + score, { fontSize: '32px', color: '#ffff00' }).setOrigin(0.5);
-    scene.replayText = scene.add.text(400, 450, 'Presiona ESPACIO para jugar de nuevo', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5);
+    scene.replayText = scene.add.text(400, 450, 'Haz click para jugar de nuevo', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setInteractive();
+    scene.replayText.on('pointerdown', () => {
+      resetGame(scene);
+    });
     scene.tweens.add({ targets: scene.replayText, alpha: { from: 1, to: 0.5 }, duration: 1000, yoyo: true, repeat: -1 });
     scene.tweens.add({ targets: scene.defeatText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
     playTone(scene, 220, 0.5); // Low tone
@@ -1615,6 +1629,7 @@ function createAttackButton(scene) {
     scene.time.delayedCall(100, () => attackButton.setScale(1));
   });
 
+  attackButton.setVisible(false); // Hidden by default, shown only during gameplay
   return attackButton;
 }
 
@@ -1648,6 +1663,7 @@ function createRhythmDurationControls(scene) {
 
     scene.rhythmControl.on('pointerout', () => {
       scene.rhythmControl.setBackgroundColor('rgba(0, 255, 255, 0.1)');
+    scene.rhythmControl.setVisible(false); // Hidden by default, shown only during gameplay
     });
   } else {
     scene.rhythmControl.setText('Ritmo: ' + RHYTHMS[selectedMelody.rhythm]).setVisible(true);
@@ -1679,6 +1695,7 @@ function createRhythmDurationControls(scene) {
 
     scene.durationControl.on('pointerout', () => {
       scene.durationControl.setBackgroundColor('rgba(255, 255, 0, 0.1)');
+    scene.durationControl.setVisible(false); // Hidden by default, shown only during gameplay
     });
   } else {
     scene.durationControl.setText('Duración: ' + DURATIONS[selectedMelody.duration]).setVisible(true);
