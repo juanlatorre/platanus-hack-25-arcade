@@ -155,10 +155,15 @@ function create() {
   generateTones();
 
   // Melody UI texts (create once)
-  this.pitchText = this.add.text(100, 500, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
-  this.rhythmText = this.add.text(300, 500, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
-  this.durationText = this.add.text(500, 500, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
+  this.pitchText = this.add.text(100, 420, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
+  this.rhythmText = this.add.text(300, 420, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
+  this.durationText = this.add.text(500, 420, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.harmonyText = this.add.text(400, 100, 'Harmony: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
+
+  this.instructionsText = this.add.text(400, 520, 'W: Cycle Pitch (match tones!)\nA: Cycle Rhythm\nS: Cycle Duration\nSPACE: Play Harmony', { fontSize: '14px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
+  this.windText = this.add.text(100, 150, '', { fontSize: '16px', color: '#00ffff' }).setVisible(false);
+  this.birdsText = this.add.text(700, 150, '', { fontSize: '16px', color: '#ff8800' }).setVisible(false);
+  this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
 
   // Add SPACE to play harmony
   this.input.keyboard.on('keydown-SPACE', () => {
@@ -177,6 +182,14 @@ function create() {
   });
 
   console.log('Create called'); // Debug
+
+  this.playerHPText = this.add.text(50, 5, 'Player HP: 100', { fontSize: '14px', color: '#00ff00' }).setVisible(false);
+  this.aiHPText = this.add.text(600, 5, 'AI HP: 100', { fontSize: '14px', color: '#ff0000' }).setVisible(false);
+
+  this.input.on('pointerdown', () => {
+    if (this.sound.context.state === 'suspended') this.sound.context.resume();
+    console.log('Audio resumed on click');
+  });
 }
 
 function drawMenu(scene) {
@@ -205,6 +218,19 @@ function update() {
     this.durationText.setText('Duration: ' + DURATIONS[selectedMelody.duration]).setVisible(true);
     this.harmonyText.setText('Harmony: ' + harmonyMeter + '%').setVisible(true);
 
+    // Instructions background rect
+    this.graphics.fillStyle(0x000000, 0.5);
+    this.graphics.fillRect(200, 480, 400, 80);
+    this.graphics.lineStyle(1, 0xffff00, 1);
+    this.graphics.strokeRect(200, 480, 400, 80); // Bright border
+
+    // Instructions text (re-add if destroyed, at y=530)
+    if (!this.instructionsText || !this.instructionsText.active) {
+      this.instructionsText = this.add.text(400, 530, 'W: Cycle Pitch (match tones!)\nA: Cycle Rhythm\nS: Cycle Duration\nSPACE: Play Harmony', { fontSize: '14px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
+    }
+    this.instructionsText.setVisible(true);
+    console.log('Instructions visible');
+
     // Note: Texts recreate each frame—optimize later by creating once and updating text.
     console.log('Rendering player turn');
   } else if (gameState === 'ai_turn') {
@@ -212,6 +238,43 @@ function update() {
     console.log('Rendering AI turn');
   }
 
+  // Add health bars in update() player_turn/ai_turn using graphics (after clear):
+
+  // Player health bar
+  this.graphics.fillStyle(0x00ff00, 1);
+  this.graphics.fillRect(50, 20, (playerHealth / 100) * 150, 15);
+  this.graphics.lineStyle(1, 0xffffff, 1);
+  this.graphics.strokeRect(50, 20, 150, 15);
+
+  // AI health bar
+  this.graphics.fillStyle(0xff0000, 1);
+  this.graphics.fillRect(600, 20, (aiHealth / 100) * 150, 15);
+  this.graphics.strokeRect(600, 20, 150, 15);
+
+  // Harmony meter bar
+  this.graphics.fillStyle(0xffff00, 1);
+  this.graphics.fillRect(350, 120, (harmonyMeter / 100) * 100, 10);
+  this.graphics.strokeRect(350, 120, 100, 10);
+
+  // In playHarmony, after applyEffects: Show feedback and fade out
+
+  this.playerHPText.setText('Player HP: ' + playerHealth).setVisible(true);
+  this.aiHPText.setText('AI HP: ' + aiHealth).setVisible(true);
+
+  this.tweens.killTweensOf(this.feedbackText); // Stop any ongoing fade
+  this.feedbackText.setAlpha(1).setVisible(true).setText(`Harmony ${harmonyMeter}% - Dealt ${Math.floor(harmonyMeter / 10)} damage!`);
+  this.tweens.add({ targets: this.feedbackText, alpha: 0, duration: 1500, onComplete: () => this.feedbackText.setVisible(false) });
+
+  // Hide UI in menu/victory/defeat: Add in update() if (gameState !== 'player_turn' && gameState !== 'ai_turn') { this.instructionsText.setVisible(false); this.windText.setVisible(false); this.birdsText.setVisible(false); }
+  if (gameState !== 'player_turn' && gameState !== 'ai_turn') {
+    this.instructionsText.setVisible(false);
+    this.windText.setVisible(false);
+    this.birdsText.setVisible(false);
+    this.playerHPText.setVisible(false);
+    this.aiHPText.setVisible(false);
+  }
+
+  // Note: These texts recreate each frame—optimize by creating once if needed, but fine for now.
   console.log('Update loop running, state: ' + gameState);
   console.log('Update: state=' + gameState); // Debug
 }
@@ -270,6 +333,9 @@ function aiPlay(scene) {
   generateTones();
   gameState = 'player_turn';
   scene.turnText.setText('Player Turn ' + turnCount).setColor('#00ff00');
+
+  scene.feedbackText.setAlpha(1).setVisible(true).setText(`AI Harmony ${harmonyMeter}% - Dealt ${Math.floor(harmonyMeter / 10)} damage!`);
+  scene.tweens.add({ targets: scene.feedbackText, alpha: 0, duration: 1500, onComplete: () => scene.feedbackText.setVisible(false) });
 }
 
 function checkWinLose(scene) {
