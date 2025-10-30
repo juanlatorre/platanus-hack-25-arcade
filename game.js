@@ -147,9 +147,82 @@ function create() {
 
   // Menu text as group for easy destroy
   this.menuTexts = [];
-  this.menuTexts.push(this.add.text(400, 150, "El Duelo Sinfónico de Zarapito", { fontSize: '32px', color: '#00ffff' }).setOrigin(0.5));
-  const startText = this.add.text(400, 350, 'Presiona ESPACIO para Iniciar', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5);
+
+  // Main title with glow effect
+  const titleText = this.add.text(400, 150, "El Duelo Sinfónico de Zarapito", {
+    fontSize: '32px',
+    color: '#00ffff',
+    stroke: '#0088ff',
+    strokeThickness: 2
+  }).setOrigin(0.5);
+  this.menuTexts.push(titleText);
+
+  // Subtitle
+  const subtitleText = this.add.text(400, 190, "¡Armonías Musicales en el Aire!", {
+    fontSize: '16px',
+    color: '#ffff88',
+    fontStyle: 'italic'
+  }).setOrigin(0.5);
+  this.menuTexts.push(subtitleText);
+
+  // Start text
+  const startText = this.add.text(400, 350, 'Presiona ESPACIO para Iniciar', {
+    fontSize: '20px',
+    color: '#00ff00'
+  }).setOrigin(0.5);
   this.menuTexts.push(startText);
+
+  // Credits with typewriter effect
+  const creditsText = this.add.text(400, 450, '', {
+    fontSize: '14px',
+    color: '#ffffff',
+    fontStyle: 'italic'
+  }).setOrigin(0.5);
+  this.menuTexts.push(creditsText);
+
+  // Typewriter effect for credits
+  const creditsString = "Un juego de Juan Latorre";
+  let charIndex = 0;
+  const typewriterInterval = setInterval(() => {
+    if (charIndex < creditsString.length) {
+      creditsText.setText(creditsString.substring(0, charIndex + 1));
+      charIndex++;
+
+      // Add a little bounce effect on each character
+      this.tweens.add({
+        targets: creditsText,
+        scaleX: 1.05,
+        scaleY: 1.05,
+        duration: 50,
+        yoyo: true,
+        ease: 'Power2'
+      });
+    } else {
+      clearInterval(typewriterInterval);
+      // Rainbow effect after typing is complete
+      startRainbowEffect(this, creditsText);
+    }
+  }, 100);
+
+  // Pulsing title effect
+  this.tweens.add({
+    targets: titleText,
+    scale: { from: 1, to: 1.02 },
+    duration: 2000,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut'
+  });
+
+  // Floating subtitle
+  this.tweens.add({
+    targets: subtitleText,
+    y: { from: 190, to: 185 },
+    duration: 2500,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut'
+  });
 
   // Tween for start text
   this.tweens.add({
@@ -159,6 +232,9 @@ function create() {
     yoyo: true,
     repeat: -1
   });
+
+  // Add floating musical notes (created once)
+  addMenuDecorations(this);
 
   // Tutorial texts
   this.tutorialTexts = [];
@@ -436,6 +512,26 @@ function create() {
 }
 
 function drawMenu(scene) {
+  scene.graphics.clear();
+
+  // Gradient background - using solid colors since fillGradientStyle might not work
+  scene.graphics.fillStyle(0x1a1a2e, 1);
+  scene.graphics.fillRect(0, 0, 800, 600);
+
+  // Bird silhouettes in background
+  scene.graphics.fillStyle(0x000000, 0.08);
+  for (let i = 0; i < 3; i++) {
+    const birdX = 100 + i * 250;
+    const birdY = 150 + i * 50;
+
+    // Draw bird body as ellipse
+    scene.graphics.fillEllipse(birdX, birdY, 50, 25);
+
+    // Wings
+    scene.graphics.fillEllipse(birdX - 30, birdY, 25, 40);
+    scene.graphics.fillEllipse(birdX + 30, birdY, 25, 40);
+  }
+
   console.log('Drawing bird - graphics defined:', !!scene.graphics);
   // Decorative birds - bigger size
   drawBird(scene.graphics, 200, 400, 35, 0x8b4513, false, 1);
@@ -1442,6 +1538,62 @@ function toggleBackgroundMusic() {
   backgroundMusicEnabled = !backgroundMusicEnabled;
   if (!backgroundMusicEnabled) {
     stopBackgroundMusic();
+  }
+}
+
+function startRainbowEffect(scene, textObject) {
+  let hue = 0;
+  scene.time.addEvent({
+    delay: 50,
+    callback: () => {
+      if (textObject && textObject.active) {
+        hue = (hue + 1) % 360;
+        // Simple rainbow colors instead of HSLToColor
+        const rainbowColors = [
+          '#ff0000', '#ff8000', '#ffff00', '#80ff00',
+          '#00ff00', '#00ff80', '#00ffff', '#0080ff',
+          '#0000ff', '#8000ff', '#ff00ff', '#ff0080'
+        ];
+        const colorIndex = Math.floor(hue / 30) % rainbowColors.length;
+        textObject.setColor(rainbowColors[colorIndex]);
+      }
+    },
+    loop: true
+  });
+}
+
+function addMenuDecorations(scene) {
+  // Add floating musical notes around the screen
+  const noteSymbols = ['♪', '♫', '♬', '♩', '♭', '♯'];
+
+  for (let i = 0; i < 12; i++) {
+    const noteText = scene.add.text(
+      Math.random() * 800,
+      Math.random() * 600,
+      noteSymbols[Math.floor(Math.random() * noteSymbols.length)],
+      {
+        fontSize: `${10 + Math.random() * 12}px`,
+        color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+        alpha: 0.4
+      }
+    ).setOrigin(0.5);
+
+    // Floating animation with rotation
+    scene.tweens.add({
+      targets: noteText,
+      y: noteText.y - 30 - Math.random() * 40,
+      x: noteText.x + (Math.random() - 0.5) * 60,
+      angle: (Math.random() - 0.5) * 20,
+      alpha: { from: 0.4, to: 0.1 },
+      duration: 4000 + Math.random() * 3000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+      delay: Math.random() * 3000
+    });
+
+    // Add to menu texts so they get cleaned up
+    scene.menuTexts.push(noteText);
   }
 }
 
