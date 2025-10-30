@@ -30,9 +30,20 @@ let playerStunned = false;
 let aiStunned = false;
 let stunTurnsRemaining = { player: 0, ai: 0 };
 
+// Environmental power-ups
+let activePowerUps = { player: null, ai: null };
+let powerUpTurnsRemaining = { player: 0, ai: 0 };
+
 const PITCHES = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
 const RHYTHMS = ['whole', 'half', 'quarter', 'eighth'];
 const DURATIONS = ['short', 'medium', 'long'];
+
+// Environmental power-ups
+const POWER_UPS = {
+  WIND_GUST: 'wind_gust',     // 1.5x damage for 2 turns
+  BIRD_FLOCK: 'bird_flock',   // +20% harmony for 3 turns
+  MUSICAL_ECHO: 'musical_echo' // Copy opponent's successful pitch for 1 turn
+};
 
 let selectedMelody = { pitch: 0, rhythm: 0, duration: 0 }; // Indices for selection
 
@@ -406,8 +417,8 @@ function createTutorial(scene) {
   if (scene.tutorialTexts && scene.tutorialTexts.length > 0) return; // Already created
   
   scene.tutorialTexts = [];
-  const y = 80;
-  let spacing = 32;
+  const y = 50;
+  let spacing = 28;
   
   const t1 = scene.add.text(400, y, 'CÓMO JUGAR', { fontSize: '36px', color: '#00ffff', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t1);
@@ -430,12 +441,18 @@ function createTutorial(scene) {
   
   const t8 = scene.add.text(400, y + spacing * 11, '✨ ESPECIALES', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t8);
-  const t9 = scene.add.text(400, y + spacing * 12, '100% = PERFECTA (doble daño + cura)', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  const t9 = scene.add.text(400, y + spacing * 12, '100% = PERFECTA (doble daño + cura)', { fontSize: '14px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t9);
-  const t10 = scene.add.text(400, y + spacing * 13, '80%+ = ATURDIMIENTO (enemigo pierde 1 turno)', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  const t10 = scene.add.text(400, y + spacing * 13, '80%+ = ATURDIMIENTO (enemigo pierde 1 turno)', { fontSize: '14px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t10);
-  const t11 = scene.add.text(400, y + spacing * 14, 'Combos aumentan daño', { fontSize: '16px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t11 = scene.add.text(400, y + spacing * 14, '💨 VIENTO FUERTE: 1.5x daño por 2 turnos', { fontSize: '12px', color: '#0088ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t11);
+  const t12 = scene.add.text(400, y + spacing * 15, '🐦 BANDADA: +20% armonía por 3 turnos', { fontSize: '12px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t12);
+  const t13 = scene.add.text(400, y + spacing * 16, '🎵 ECO MUSICAL: Copia tono exitoso rival', { fontSize: '12px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t13);
+  const t14 = scene.add.text(400, y + spacing * 17, 'Combos aumentan daño', { fontSize: '14px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t14);
   
   const continueText = scene.add.text(400, 540, 'Presiona ESPACIO para comenzar', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(continueText);
@@ -653,6 +670,9 @@ function update(time, delta) {
     this.windText.setPosition(100, 420).setVisible(true);
     this.birdsText.setPosition(700, 420).setVisible(true);
 
+    // Power-up indicators
+    drawPowerUpIndicators(this.graphics, activePowerUps, powerUpTurnsRemaining);
+
     this.feedbackText.setVisible(false); // Only show when harmony is played
   } else {
     this.feedbackText.setVisible(false);
@@ -682,11 +702,102 @@ let turnTimer = 15000; // 15 seconds
 let combo = 0;
 let score = 0;
 let lastHarmony = 0;
+let lastSuccessfulPitch = { player: null, ai: null }; // For musical echo power-up
 let birdPositions = { player: { baseY: 250, offsetY: 0 }, ai: { baseY: 250, offsetY: 0 } };
 
 function generateTones() {
   environmentalTones.wind = PITCHES[Math.floor(Math.random() * PITCHES.length)];
   environmentalTones.birds = PITCHES[Math.floor(Math.random() * PITCHES.length)];
+}
+
+function activateEnvironmentalPowerUp(scene, isPlayer) {
+  // 15% chance to activate a power-up after a successful harmony (>=60%)
+  if (Math.random() > 0.15) return;
+
+  const powerUps = Object.values(POWER_UPS);
+  const randomPowerUp = powerUps[Math.floor(Math.random() * powerUps.length)];
+
+  const target = isPlayer ? 'player' : 'ai';
+
+  // Set the power-up
+  activePowerUps[target] = randomPowerUp;
+
+  // Set duration based on power-up type
+  switch (randomPowerUp) {
+    case POWER_UPS.WIND_GUST:
+      powerUpTurnsRemaining[target] = 2;
+      break;
+    case POWER_UPS.BIRD_FLOCK:
+      powerUpTurnsRemaining[target] = 3;
+      break;
+    case POWER_UPS.MUSICAL_ECHO:
+      powerUpTurnsRemaining[target] = 1;
+      break;
+  }
+
+  // Show visual effect
+  showPowerUpEffect(scene, isPlayer, randomPowerUp);
+}
+
+function showPowerUpEffect(scene, isPlayer, powerUpType) {
+  const birdX = isPlayer ?
+    (scene.playerBirdX ? scene.playerBirdX.value : 150) :
+    (scene.aiBirdX ? scene.aiBirdX.value : 650);
+  const birdY = isPlayer ?
+    (scene.playerBirdY ? scene.playerBirdY.value : 250) :
+    (scene.aiBirdY ? scene.aiBirdY.value : 250);
+
+  let effectText = '';
+  let effectColor = '#00ff00';
+  let effectIcon = '';
+
+  switch (powerUpType) {
+    case POWER_UPS.WIND_GUST:
+      effectText = '¡VIENTO FUERTE!';
+      effectColor = '#0088ff';
+      effectIcon = '💨';
+      break;
+    case POWER_UPS.BIRD_FLOCK:
+      effectText = '¡BANDADA!';
+      effectColor = '#ffff00';
+      effectIcon = '🐦';
+      break;
+    case POWER_UPS.MUSICAL_ECHO:
+      effectText = '¡ECO MUSICAL!';
+      effectColor = '#ff00ff';
+      effectIcon = '🎵';
+      break;
+  }
+
+  // Create floating icon
+  const iconText = scene.add.text(birdX, birdY - 60, effectIcon, { fontSize: '24px' }).setOrigin(0.5);
+  scene.tweens.add({
+    targets: iconText,
+    y: birdY - 100,
+    alpha: 0,
+    scale: 1.5,
+    duration: 2000,
+    ease: 'Power2',
+    onComplete: () => iconText.destroy()
+  });
+
+  // Create effect text
+  const effectTextObj = scene.add.text(birdX, birdY - 30, effectText, {
+    fontSize: '14px',
+    color: effectColor,
+    stroke: '#000000',
+    strokeThickness: 2,
+    fontStyle: 'bold'
+  }).setOrigin(0.5);
+
+  scene.tweens.add({
+    targets: effectTextObj,
+    y: birdY - 70,
+    alpha: 0,
+    duration: 1500,
+    ease: 'Power2',
+    onComplete: () => effectTextObj.destroy()
+  });
 }
 
 function playHarmony(scene) {
@@ -702,12 +813,79 @@ function playHarmony(scene) {
 }
 
 function calculateHarmony() {
+  const currentPlayer = gameState === 'player_turn' ? 'player' : 'ai';
+  const opponent = gameState === 'player_turn' ? 'ai' : 'player';
+
+  // Apply musical echo power-up (copy opponent's successful pitch)
+  let effectivePitchIndex = selectedMelody.pitch;
+  if (activePowerUps[currentPlayer] === POWER_UPS.MUSICAL_ECHO && powerUpTurnsRemaining[currentPlayer] > 0 && lastSuccessfulPitch[opponent]) {
+    const echoPitchIndex = PITCHES.indexOf(lastSuccessfulPitch[opponent]);
+    if (echoPitchIndex !== -1) {
+      effectivePitchIndex = echoPitchIndex;
+    }
+  }
+
   harmonyMeter = 0;
-  if (PITCHES[selectedMelody.pitch] === environmentalTones.wind) harmonyMeter += 30;
-  if (PITCHES[selectedMelody.pitch] === environmentalTones.birds) harmonyMeter += 30;
+  if (PITCHES[effectivePitchIndex] === environmentalTones.wind) harmonyMeter += 30;
+  if (PITCHES[effectivePitchIndex] === environmentalTones.birds) harmonyMeter += 30;
   if (RHYTHMS[selectedMelody.rhythm] === 'quarter') harmonyMeter += 20;
   if (DURATIONS[selectedMelody.duration] === 'medium') harmonyMeter += 20;
+
+  // Apply bird flock power-up bonus (+20% harmony)
+  if (activePowerUps[currentPlayer] === POWER_UPS.BIRD_FLOCK && powerUpTurnsRemaining[currentPlayer] > 0) {
+    harmonyMeter += 20;
+  }
+
   harmonyMeter = Math.min(100, harmonyMeter);
+}
+
+function drawPowerUpIndicators(graphics, activePowerUps, powerUpTurnsRemaining) {
+  // Player power-up indicator (above player bird)
+  if (activePowerUps.player && powerUpTurnsRemaining.player > 0) {
+    const icon = getPowerUpIcon(activePowerUps.player);
+    const color = getPowerUpColor(activePowerUps.player);
+
+    // Draw background circle
+    graphics.fillStyle(color, 0.8);
+    graphics.fillCircle(150, 180, 20);
+
+    // Draw icon text (using Phaser text instead of graphics.fillText)
+    // We'll handle this differently - just draw the circle for now
+    graphics.lineStyle(2, 0xffffff, 1);
+    graphics.strokeCircle(150, 180, 20);
+  }
+
+  // AI power-up indicator (above AI bird)
+  if (activePowerUps.ai && powerUpTurnsRemaining.ai > 0) {
+    const icon = getPowerUpIcon(activePowerUps.ai);
+    const color = getPowerUpColor(activePowerUps.ai);
+
+    // Draw background circle
+    graphics.fillStyle(color, 0.8);
+    graphics.fillCircle(650, 180, 20);
+
+    // Draw border
+    graphics.lineStyle(2, 0xffffff, 1);
+    graphics.strokeCircle(650, 180, 20);
+  }
+}
+
+function getPowerUpIcon(powerUpType) {
+  switch (powerUpType) {
+    case POWER_UPS.WIND_GUST: return '💨';
+    case POWER_UPS.BIRD_FLOCK: return '🐦';
+    case POWER_UPS.MUSICAL_ECHO: return '🎵';
+    default: return '?';
+  }
+}
+
+function getPowerUpColor(powerUpType) {
+  switch (powerUpType) {
+    case POWER_UPS.WIND_GUST: return 0x0088ff;
+    case POWER_UPS.BIRD_FLOCK: return 0xffff00;
+    case POWER_UPS.MUSICAL_ECHO: return 0xff00ff;
+    default: return 0xffffff;
+  }
 }
 
 function drawToneSelector(graphics, x, y, width, height, selectedIdx) {
@@ -747,10 +925,18 @@ function drawToneSelector(graphics, x, y, width, height, selectedIdx) {
 }
 
 function applyEffects(scene) {
+  const currentPlayer = gameState === 'player_turn' ? 'player' : 'ai';
+  const opponent = gameState === 'player_turn' ? 'ai' : 'player';
+
   let baseDamage = Math.floor(harmonyMeter / 10);
   let moveName = '';
   let healAmount = 0;
-  
+
+  // Apply wind gust power-up (1.5x damage)
+  if (activePowerUps[currentPlayer] === POWER_UPS.WIND_GUST && powerUpTurnsRemaining[currentPlayer] > 0) {
+    baseDamage = Math.floor(baseDamage * 1.5);
+  }
+
   // Combo system (chain good harmonies)
   if (harmonyMeter >= 50 && lastHarmony >= 50) {
     combo++;
@@ -863,6 +1049,27 @@ function applyEffects(scene) {
     showHealNumber(scene, birdX, birdY, healAmount);
   }
   
+  // Record successful pitch for musical echo (if harmony >= 60%)
+  if (harmonyMeter >= 60) {
+    lastSuccessfulPitch[currentPlayer] = PITCHES[selectedMelody.pitch];
+    // Try to activate environmental power-up (15% chance)
+    activateEnvironmentalPowerUp(scene, gameState === 'player_turn');
+  }
+
+  // Decrement power-up turns
+  if (powerUpTurnsRemaining.player > 0) {
+    powerUpTurnsRemaining.player--;
+    if (powerUpTurnsRemaining.player === 0) {
+      activePowerUps.player = null;
+    }
+  }
+  if (powerUpTurnsRemaining.ai > 0) {
+    powerUpTurnsRemaining.ai--;
+    if (powerUpTurnsRemaining.ai === 0) {
+      activePowerUps.ai = null;
+    }
+  }
+
   lastHarmony = harmonyMeter;
   checkWinLose(scene);
 
@@ -989,6 +1196,11 @@ function resetGame(scene) {
   playerStunned = false;
   aiStunned = false;
   stunTurnsRemaining = { player: 0, ai: 0 };
+
+  // Reset environmental power-ups
+  activePowerUps = { player: null, ai: null };
+  powerUpTurnsRemaining = { player: 0, ai: 0 };
+  lastSuccessfulPitch = { player: null, ai: null };
   
   // Generate new environmental tones
   generateTones();
