@@ -140,7 +140,7 @@ function create() {
   // Tutorial texts
   this.tutorialTexts = [];
 
-  // Keyboard input for SPACE (handles menu->tutorial->gameplay)
+  // Keyboard input for SPACE (handles menu->tutorial->gameplay->restart)
   this.input.keyboard.on('keydown-SPACE', () => {
     if (gameState === 'menu') {
       console.log('SPACE pressed in menu, transitioning to tutorial');
@@ -151,14 +151,21 @@ function create() {
     } else if (gameState === 'tutorial') {
       gameState = 'player_turn';
       turnCount = 1;
-      turnTimer = 7000;
+      turnTimer = 15000;
       combo = 0;
       score = 0;
       lastHarmony = 0;
       if (this.tutorialTexts) this.tutorialTexts.forEach(text => text.setVisible(false));
       this.turnText.setVisible(true);
+    } else if (gameState === 'victory' || gameState === 'defeat') {
+      // Restart game
+      resetGame(this);
     } else if (gameState === 'player_turn') {
+      // Don't allow actions if game has ended
+      if (gameState === 'victory' || gameState === 'defeat') return;
       playHarmony(this);
+      // Check if game ended after playHarmony
+      if (gameState === 'victory' || gameState === 'defeat') return;
       gameState = 'ai_turn';
       this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000');
       this.time.delayedCall(1000, () => aiPlay(this));
@@ -538,15 +545,19 @@ function update(time, delta) {
       this.instructionsText.setVisible(true).setPosition(400, 560);
 
       if (turnTimer <= 0) {
+        // Don't auto-play if game has ended
+        if (gameState === 'victory' || gameState === 'defeat') return;
         // Auto random
         selectedMelody.pitch = Math.floor(Math.random() * PITCHES.length);
         selectedMelody.rhythm = Math.floor(Math.random() * RHYTHMS.length);
         selectedMelody.duration = Math.floor(Math.random() * DURATIONS.length);
         playHarmony(this);
+        // Check if game ended after playHarmony
+        if (gameState === 'victory' || gameState === 'defeat') return;
         gameState = 'ai_turn';
         this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000');
         this.time.delayedCall(500, () => aiPlay(this));
-        turnTimer = 7000;
+        turnTimer = 15000;
       }
     } else if (gameState === 'ai_turn') {
       this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000').setVisible(true).setPosition(400, 30);
@@ -832,6 +843,11 @@ function applyEffects(scene) {
   lastHarmony = harmonyMeter;
   checkWinLose(scene);
 
+  // If game ended, don't continue with turn transitions
+  if (gameState === 'victory' || gameState === 'defeat') {
+    return; // Stop execution, game is over
+  }
+
   // Get current bird positions for attack visualization
   const playerX = scene.playerBirdX ? scene.playerBirdX.value : 150;
   const playerY = scene.playerBirdY ? scene.playerBirdY.value : 200;
@@ -840,7 +856,7 @@ function applyEffects(scene) {
   
   if (gameState === 'player_turn') {
     animateAttack(scene, scene.graphics, playerX, playerY, aiX, aiY, harmonyMeter, combo);
-  } else {
+  } else if (gameState === 'ai_turn') {
     animateAttack(scene, scene.graphics, aiX, aiY, playerX, playerY, harmonyMeter, combo);
   }
   
@@ -852,12 +868,23 @@ function applyEffects(scene) {
 }
 
 function aiPlay(scene) {
+  // Don't play if game has ended
+  if (gameState === 'victory' || gameState === 'defeat') {
+    return;
+  }
+  
   const targetPitch = Math.random() < 0.5 ? environmentalTones.wind : environmentalTones.birds;
   selectedMelody.pitch = PITCHES.indexOf(targetPitch);
   if (selectedMelody.pitch === -1) selectedMelody.pitch = Math.floor(Math.random() * PITCHES.length); // Fallback
   selectedMelody.rhythm = Math.floor(Math.random() * RHYTHMS.length);
   selectedMelody.duration = Math.floor(Math.random() * DURATIONS.length);
   playHarmony(scene);
+  
+  // Check again after playHarmony (which calls checkWinLose)
+  if (gameState === 'victory' || gameState === 'defeat') {
+    return; // Game ended, stop
+  }
+  
   turnCount++;
   generateTones();
   gameState = 'player_turn';
@@ -865,24 +892,79 @@ function aiPlay(scene) {
 
   scene.feedbackText.setAlpha(1).setVisible(true).setText(`Armonía IA ${harmonyMeter}% - ¡${Math.floor(harmonyMeter / 10)} de daño!`);
   scene.tweens.add({ targets: scene.feedbackText, alpha: 0, duration: 1500, onComplete: () => scene.feedbackText.setVisible(false) });
-  turnTimer = 7000;
+  turnTimer = 15000;
+}
+
+function resetGame(scene) {
+  // Stop and destroy any tweens on victory/defeat texts
+  if (scene.replayText) {
+    scene.tweens.killTweensOf(scene.replayText);
+    scene.replayText.destroy();
+    scene.replayText = null;
+  }
+  
+  // Destroy victory texts
+  if (scene.victoryText) {
+    scene.tweens.killTweensOf(scene.victoryText);
+    scene.victoryText.destroy();
+    scene.victoryText = null;
+  }
+  if (scene.victoryScoreText) {
+    scene.victoryScoreText.destroy();
+    scene.victoryScoreText = null;
+  }
+  
+  // Destroy defeat texts
+  if (scene.defeatText) {
+    scene.tweens.killTweensOf(scene.defeatText);
+    scene.defeatText.destroy();
+    scene.defeatText = null;
+  }
+  if (scene.defeatScoreText) {
+    scene.defeatScoreText.destroy();
+    scene.defeatScoreText = null;
+  }
+  
+  // Reset all game variables
+  gameState = 'player_turn';
+  turnCount = 1;
+  playerHealth = 100;
+  aiHealth = 100;
+  turnTimer = 15000;
+  combo = 0;
+  score = 0;
+  lastHarmony = 0;
+  selectedMelody = { pitch: 0, rhythm: 0, duration: 0 };
+  harmonyMeter = 0;
+  
+  // Generate new environmental tones
+  generateTones();
+  
+  // Reset UI elements
+  scene.turnText.setText('Turno ' + turnCount + ' - Jugador').setColor('#00ff00').setVisible(true);
 }
 
 function checkWinLose(scene) {
   if (aiHealth <= 0) {
     gameState = 'victory';
-    const victoryText = scene.add.text(400, 250, '¡VICTORIA!', { fontSize: '64px', color: '#00ff00', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
-    const scoreText = scene.add.text(400, 320, 'Puntos Finales: ' + score, { fontSize: '32px', color: '#00ffff' }).setOrigin(0.5);
-    scene.tweens.add({ targets: victoryText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
+    // Store references to texts for cleanup
+    scene.victoryText = scene.add.text(400, 250, '¡VICTORIA!', { fontSize: '64px', color: '#00ff00', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    scene.victoryScoreText = scene.add.text(400, 320, 'Puntos Finales: ' + score, { fontSize: '32px', color: '#00ffff' }).setOrigin(0.5);
+    scene.replayText = scene.add.text(400, 400, 'Presiona ESPACIO para jugar de nuevo', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5);
+    scene.tweens.add({ targets: scene.replayText, alpha: { from: 1, to: 0.5 }, duration: 1000, yoyo: true, repeat: -1 });
+    scene.tweens.add({ targets: scene.victoryText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
     scene.cameras.main.shake(500, 0.03);
     playTone(scene, 523, 0.3); // C5
     scene.time.delayedCall(300, () => playTone(scene, 659, 0.3)); // E5
     scene.time.delayedCall(600, () => playTone(scene, 784, 0.3)); // G5
   } else if (playerHealth <= 0) {
     gameState = 'defeat';
-    const defeatText = scene.add.text(400, 300, '¡DERROTA!', { fontSize: '64px', color: '#ff0000', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
-    const scoreText = scene.add.text(400, 370, 'Puntos Finales: ' + score, { fontSize: '32px', color: '#ffff00' }).setOrigin(0.5);
-    scene.tweens.add({ targets: defeatText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
+    // Store references to texts for cleanup
+    scene.defeatText = scene.add.text(400, 300, '¡DERROTA!', { fontSize: '64px', color: '#ff0000', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    scene.defeatScoreText = scene.add.text(400, 370, 'Puntos Finales: ' + score, { fontSize: '32px', color: '#ffff00' }).setOrigin(0.5);
+    scene.replayText = scene.add.text(400, 450, 'Presiona ESPACIO para jugar de nuevo', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5);
+    scene.tweens.add({ targets: scene.replayText, alpha: { from: 1, to: 0.5 }, duration: 1000, yoyo: true, repeat: -1 });
+    scene.tweens.add({ targets: scene.defeatText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
     playTone(scene, 220, 0.5); // Low tone
   }
 }
