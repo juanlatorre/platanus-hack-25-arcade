@@ -25,6 +25,11 @@ let playerHealth = 100;
 let aiHealth = 100;
 let graphics;
 
+// Stun system variables
+let playerStunned = false;
+let aiStunned = false;
+let stunTurnsRemaining = { player: 0, ai: 0 };
+
 const PITCHES = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
 const RHYTHMS = ['whole', 'half', 'quarter', 'eighth'];
 const DURATIONS = ['short', 'medium', 'long'];
@@ -163,6 +168,30 @@ function create() {
     } else if (gameState === 'player_turn') {
       // Don't allow actions if game has ended
       if (gameState === 'victory' || gameState === 'defeat') return;
+
+      // Check if player is stunned - skip turn
+      if (playerStunned && stunTurnsRemaining.player > 0) {
+        stunTurnsRemaining.player--;
+
+        // Show stunned message
+        this.feedbackText.setAlpha(1).setVisible(true).setText('¡ATURDIDO - Pierdes turno!');
+        this.tweens.add({ targets: this.feedbackText, alpha: 0, duration: 1500, onComplete: () => this.feedbackText.setVisible(false) });
+
+        // Show stun effect on player bird
+        showStunEffect(this, true);
+
+        // If stun turns are over, clear stun status
+        if (stunTurnsRemaining.player === 0) {
+          playerStunned = false;
+        }
+
+        // Skip to AI turn
+        gameState = 'ai_turn';
+        this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000');
+        this.time.delayedCall(1000, () => aiPlay(this));
+        return;
+      }
+
       playHarmony(this);
       // Check if game ended after playHarmony
       if (gameState === 'victory' || gameState === 'defeat') return;
@@ -403,7 +432,7 @@ function createTutorial(scene) {
   scene.tutorialTexts.push(t8);
   const t9 = scene.add.text(400, y + spacing * 12, '100% = PERFECTA (doble daño + cura)', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t9);
-  const t10 = scene.add.text(400, y + spacing * 13, '80%+ = Aturdimiento', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  const t10 = scene.add.text(400, y + spacing * 13, '80%+ = ATURDIMIENTO (enemigo pierde 1 turno)', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t10);
   const t11 = scene.add.text(400, y + spacing * 14, 'Combos aumentan daño', { fontSize: '16px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t11);
@@ -804,28 +833,22 @@ function applyEffects(scene) {
     onComplete: () => moveText.destroy() 
   });
 
-  // Stun effect (80%+ harmony)
+  // Stun effect (80%+ harmony) - disables enemy for 1 full turn
   if (harmonyMeter >= 80) {
     const stunText = scene.add.text(400, 250, '¡ATURDIMIENTO!', { fontSize: '32px', color: '#ff00ff' }).setOrigin(0.5);
     scene.tweens.add({ targets: stunText, alpha: 0, y: stunText.y - 50, duration: 1000, onComplete: () => stunText.destroy() });
-    
-    // Apply stun damage and show number
+
+    // Apply stun status (1 turn) instead of extra damage
     if (gameState === 'player_turn') {
-      aiHealth = Math.max(0, aiHealth - 3);
-      const aiX = scene.aiBirdX ? scene.aiBirdX.value : 650;
-      const aiY = scene.aiBirdY ? scene.aiBirdY.value : 250;
-      // Show stun damage slightly offset
-      scene.time.delayedCall(200, () => {
-        showDamageNumber(scene, aiX + 20, aiY - 30, 3, false);
-      });
+      aiStunned = true;
+      stunTurnsRemaining.ai = 1;
+      // Show stun effect on AI bird
+      showStunEffect(scene, false);
     } else {
-      playerHealth = Math.max(0, playerHealth - 3);
-      const playerX = scene.playerBirdX ? scene.playerBirdX.value : 150;
-      const playerY = scene.playerBirdY ? scene.playerBirdY.value : 250;
-      // Show stun damage slightly offset
-      scene.time.delayedCall(200, () => {
-        showDamageNumber(scene, playerX - 20, playerY - 30, 3, false);
-      });
+      playerStunned = true;
+      stunTurnsRemaining.player = 1;
+      // Show stun effect on player bird
+      showStunEffect(scene, true);
     }
   }
   
@@ -872,19 +895,44 @@ function aiPlay(scene) {
   if (gameState === 'victory' || gameState === 'defeat') {
     return;
   }
-  
+
+  // Check if AI is stunned - skip turn
+  if (aiStunned && stunTurnsRemaining.ai > 0) {
+    stunTurnsRemaining.ai--;
+
+    // Show stunned message
+    scene.feedbackText.setAlpha(1).setVisible(true).setText('¡IA ATURDIDA - Pierde turno!');
+    scene.tweens.add({ targets: scene.feedbackText, alpha: 0, duration: 1500, onComplete: () => scene.feedbackText.setVisible(false) });
+
+    // Show stun effect on AI bird
+    showStunEffect(scene, false);
+
+    // If stun turns are over, clear stun status
+    if (stunTurnsRemaining.ai === 0) {
+      aiStunned = false;
+    }
+
+    // Skip to next turn
+    turnCount++;
+    generateTones();
+    gameState = 'player_turn';
+    scene.turnText.setText('Turno ' + turnCount + ' - Jugador').setColor('#00ff00');
+    turnTimer = 15000;
+    return;
+  }
+
   const targetPitch = Math.random() < 0.5 ? environmentalTones.wind : environmentalTones.birds;
   selectedMelody.pitch = PITCHES.indexOf(targetPitch);
   if (selectedMelody.pitch === -1) selectedMelody.pitch = Math.floor(Math.random() * PITCHES.length); // Fallback
   selectedMelody.rhythm = Math.floor(Math.random() * RHYTHMS.length);
   selectedMelody.duration = Math.floor(Math.random() * DURATIONS.length);
   playHarmony(scene);
-  
+
   // Check again after playHarmony (which calls checkWinLose)
   if (gameState === 'victory' || gameState === 'defeat') {
     return; // Game ended, stop
   }
-  
+
   turnCount++;
   generateTones();
   gameState = 'player_turn';
@@ -936,6 +984,11 @@ function resetGame(scene) {
   lastHarmony = 0;
   selectedMelody = { pitch: 0, rhythm: 0, duration: 0 };
   harmonyMeter = 0;
+
+  // Reset stun system
+  playerStunned = false;
+  aiStunned = false;
+  stunTurnsRemaining = { player: 0, ai: 0 };
   
   // Generate new environmental tones
   generateTones();
@@ -1095,6 +1148,56 @@ function showHealNumber(scene, x, y, healAmount) {
     onComplete: () => {
       healText.destroy();
     }
+  });
+}
+
+function showStunEffect(scene, isPlayer) {
+  const birdX = isPlayer ?
+    (scene.playerBirdX ? scene.playerBirdX.value : 150) :
+    (scene.aiBirdX ? scene.aiBirdX.value : 650);
+  const birdY = isPlayer ?
+    (scene.playerBirdY ? scene.playerBirdY.value : 250) :
+    (scene.aiBirdY ? scene.aiBirdY.value : 250);
+
+  // Create stun stars effect around the bird
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const distance = 80;
+    const starX = birdX + Math.cos(angle) * distance;
+    const starY = birdY + Math.sin(angle) * distance;
+
+    // Create star emoji text
+    const starText = scene.add.text(starX, starY, '⭐', { fontSize: '20px' }).setOrigin(0.5);
+
+    // Animate stars spinning and fading
+    scene.tweens.add({
+      targets: starText,
+      angle: 360,
+      alpha: 0,
+      scale: 1.5,
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => starText.destroy()
+    });
+  }
+
+  // Create "STUNNED" text above the bird
+  const stunnedText = scene.add.text(birdX, birdY - 80, 'ATURDIDO', {
+    fontSize: '16px',
+    color: '#ff00ff',
+    stroke: '#000000',
+    strokeThickness: 2,
+    fontStyle: 'bold'
+  }).setOrigin(0.5);
+
+  // Animate stunned text
+  scene.tweens.add({
+    targets: stunnedText,
+    y: birdY - 100,
+    alpha: 0,
+    duration: 1500,
+    ease: 'Power2',
+    onComplete: () => stunnedText.destroy()
   });
 }
 
