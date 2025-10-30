@@ -278,6 +278,7 @@ function create() {
       turnTimer = 7000;
       combo = 0;
       score = 0;
+      runStats = { maxCombo: 0, perfects: 0, stuns: 0, points: 0, wins: runStats.wins || 0 };
       lastHarmony = 0;
       if (this.tutorialTexts) this.tutorialTexts.forEach(text => text.setVisible(false));
       this.turnText.setVisible(true);
@@ -288,6 +289,8 @@ function create() {
     } else if (gameState === 'player_turn' && tuningBarActive) {
       // Global click to resolve tuning (no need to hit the bar area)
       if (tuningBar.awaitingClick) {
+        // percussive click feedback
+        try { playPerc(scene=this); } catch(e) {}
         resolveTuningBarClick(this);
       }
     }
@@ -519,6 +522,27 @@ function drawMenu(scene) {
   // Decorative birds - bigger size but more subtle
   drawBird(scene.graphics, 200, 400, 35, 0x8b4513, false, 1);
   drawBird(scene.graphics, 600, 400, 35, 0x654321, true, -1);
+
+  // Best stats table (last/best runs)
+  const lines = [
+    `🏆 Mejores Rachas`,
+    `Max Combo: ${bestStats.maxCombo || 0}`,
+    `Perfectas ⭐⭐⭐: ${bestStats.perfects || 0}`,
+    `Aturdimientos: ${bestStats.stuns || 0}`,
+    `Puntos Máx: ${bestStats.points || 0}`
+  ];
+  if (!scene.bestStatsTexts) scene.bestStatsTexts = [];
+  // Create texts if not exist
+  if (scene.bestStatsTexts.length === 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const t = scene.add.text(20, 420 + i * 18, lines[i], { fontSize: i === 0 ? '14px' : '12px', color: i === 0 ? '#ffff00' : '#ffffff' }).setOrigin(0, 0.5);
+      scene.bestStatsTexts.push(t);
+    }
+  } else {
+    for (let i = 0; i < scene.bestStatsTexts.length && i < lines.length; i++) {
+      scene.bestStatsTexts[i].setText(lines[i]).setVisible(true);
+    }
+  }
 }
 
 function createTutorial(scene) {
@@ -600,6 +624,7 @@ function update(time, delta) {
     if (this.timerIcon) this.timerIcon.setVisible(false);
     if (this.instructionsText) this.instructionsText.setVisible(false);
     if (this.weatherText) this.weatherText.setVisible(false);
+    if (this.bestStatsTexts) this.bestStatsTexts.forEach(t => t && t.setVisible(false));
     // Show tutorial texts
     if (this.tutorialTexts && this.tutorialTexts.length > 0) {
       this.tutorialTexts.forEach((t, i) => {
@@ -674,6 +699,9 @@ function update(time, delta) {
     // Draw combo bar (simple UI)
     drawComboBar(this);
 
+    // Hide best stats table during gameplay
+    if (this.bestStatsTexts) this.bestStatsTexts.forEach(t => t && t.setVisible(false));
+
     // Turn event banner
     if (gameState === 'player_turn') {
       let evtText = '';
@@ -728,6 +756,9 @@ function update(time, delta) {
 
       // Draw Tuning Bar UI
       drawTuningBar(this, time);
+
+      // Track max combo during run
+      runStats.maxCombo = Math.max(runStats.maxCombo, combo);
 
       // Hide selection text (removed)
       if (this.melodyInfoText) this.melodyInfoText.setVisible(false);
@@ -830,6 +861,31 @@ function update(time, delta) {
     if (this.durationControl) this.durationControl.setVisible(false);
     if (this.attackButton) this.attackButton.setVisible(false);
     if (this.weatherText) this.weatherText.setVisible(false);
+
+    // Update best stats on run end
+    if (!this.bestUpdatedFlag) {
+      runStats.points = Math.max(runStats.points, score);
+      bestStats.maxCombo = Math.max(bestStats.maxCombo, runStats.maxCombo, combo);
+      bestStats.perfects = Math.max(bestStats.perfects, runStats.perfects);
+      bestStats.stuns = Math.max(bestStats.stuns, runStats.stuns);
+      bestStats.points = Math.max(bestStats.points, runStats.points);
+      if (gameState === 'victory') bestStats.wins = Math.max(bestStats.wins, (bestStats.wins || 0) + 1);
+      this.bestUpdatedFlag = true;
+    }
+
+    // Show best stats table on end screens
+    const lines = [
+      `🏆 Mejores Rachas`,
+      `Max Combo: ${bestStats.maxCombo || 0}`,
+      `Perfectas ⭐⭐⭐: ${bestStats.perfects || 0}`,
+      `Aturdimientos: ${bestStats.stuns || 0}`,
+      `Puntos Máx: ${bestStats.points || 0}`
+    ];
+    if (this.bestStatsTexts && this.bestStatsTexts.length > 0) {
+      for (let i = 0; i < this.bestStatsTexts.length && i < lines.length; i++) {
+        this.bestStatsTexts[i].setText(lines[i]).setVisible(true);
+      }
+    }
   }
 
   // Only show gameplay UI during actual gameplay
@@ -903,6 +959,10 @@ const COMBO_THRESHOLD = 4;
 let finisherReady = false;
 const TURN_EVENTS = { STORM: 'storm', ECHO: 'echo' };
 let turnEvent = null;
+
+// Run and best stats (no persistence)
+let runStats = { maxCombo: 0, perfects: 0, stuns: 0, points: 0, wins: 0 };
+let bestStats = { maxCombo: 0, perfects: 0, stuns: 0, points: 0, wins: 0 };
 let score = 0;
 let lastHarmony = 0;
 let lastSuccessfulPitch = { player: null, ai: null }; // For musical echo power-up
@@ -1009,6 +1069,7 @@ function playHarmony(scene) {
   const durationSec = 0.5; // Fixed duration in tuning bar mode
 
   calculateHarmony(); // Calculate harmony first to get the percentage
+  if (gameState === 'player_turn') duckBackground(scene, 0.35, 220);
   playHarmonySound(scene, harmony, pitch, durationSec);
   applyEffects(scene);
 }
@@ -1171,6 +1232,7 @@ function applyEffects(scene) {
     const finisherMult = harmony >= 80 ? 1.8 : 1.5; // stronger if high harmony
     baseDamage = Math.floor(baseDamage * finisherMult + 4);
     combo = 0; // consume combo
+    runStats.maxCombo = Math.max(runStats.maxCombo, COMBO_THRESHOLD);
 
     // Visual feedback for finisher
     const finText = scene.add.text(400, 180, '¡FINISHER!', {
@@ -1183,6 +1245,7 @@ function applyEffects(scene) {
   
   // Special moves and effects based on harmony (reduced damage for balance)
   if (harmony === 100) {
+    runStats.perfects++;
     moveName = '¡ARMONÍA PERFECTA!';
     baseDamage = Math.floor(baseDamage * 1.7); // Reduced from 2x to 1.7x
     healAmount = 3; // Reduced heal from 5 to 3
@@ -1259,6 +1322,7 @@ function applyEffects(scene) {
   if (harmony >= 80) {
     const stunChance = Math.random() < 0.5; // 50% chance to stun
     if (stunChance) {
+      runStats.stuns++;
       const stunText = scene.add.text(400, 250, '¡ATURDIMIENTO!', { fontSize: '32px', color: '#ff00ff' }).setOrigin(0.5);
       scene.tweens.add({ targets: stunText, alpha: 0, y: stunText.y - 50, duration: 1000, onComplete: () => stunText.destroy() });
 
@@ -1446,6 +1510,10 @@ function resetGame(scene) {
   tuningBarActive = false;
   tuningBar.awaitingClick = false;
 
+  // Reset run stats counters
+  runStats = { maxCombo: 0, perfects: 0, stuns: 0, points: 0, wins: runStats.wins || 0 };
+  scene.bestUpdatedFlag = false;
+
   // Reset stun system
   playerStunned = false;
   aiStunned = false;
@@ -1504,6 +1572,14 @@ function startBackgroundMusic(scene) {
   if (!backgroundMusicEnabled || backgroundMusic) return;
 
   const ctx = scene.sound.context;
+  const masterGain = ctx.createGain();
+  const masterFilter = ctx.createBiquadFilter();
+  masterFilter.type = 'lowpass';
+  masterFilter.frequency.value = 12000; // default open
+  masterGain.gain.value = 1.0;
+  masterGain.connect(masterFilter);
+  masterFilter.connect(ctx.destination);
+
   backgroundMusic = {
     oscillators: [],
     gains: [],
@@ -1512,7 +1588,9 @@ function startBackgroundMusic(scene) {
     isPlaying: true,
     currentSection: 0,
     melodyNotes: [],
-    chordProgression: []
+    chordProgression: [],
+    masterGain,
+    masterFilter
   };
 
   // More sophisticated chord progression: I - vi - IV - V - I
@@ -1539,7 +1617,7 @@ function startBackgroundMusic(scene) {
       const gain = ctx.createGain();
 
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(masterGain);
 
       osc.frequency.value = freq;
       osc.type = noteIndex === 0 ? 'sine' : 'triangle';
@@ -1559,7 +1637,7 @@ function startBackgroundMusic(scene) {
   const melodyOsc = ctx.createOscillator();
   const melodyGain = ctx.createGain();
   melodyOsc.connect(melodyGain);
-  melodyGain.connect(ctx.destination);
+  melodyGain.connect(masterGain);
   melodyOsc.type = 'sine';
   melodyGain.gain.setValueAtTime(0.015, ctx.currentTime);
   melodyOsc.start(ctx.currentTime);
@@ -2139,6 +2217,12 @@ function drawTuningBar(scene, time) {
     g.fillStyle(0xffffff, 0.35);
     g.fillRect(nx2 - 1, by - bh, 2, bh * 2);
   }
+
+  // Storm filter FX while event active
+  if (backgroundMusic && backgroundMusic.masterFilter) {
+    const targetFreq = (turnEvent === TURN_EVENTS.STORM) ? 1800 : 12000;
+    try { backgroundMusic.masterFilter.frequency.setTargetAtTime(targetFreq, scene.sound.context.currentTime, 0.2); } catch(e) {}
+  }
 }
 
 function resolveTuningBarClick(scene) {
@@ -2291,23 +2375,34 @@ function playTone(scene, freq, dur) {
 function playHarmonySound(scene, harmonyPercent, pitch, duration) {
   const ctx = scene.sound.context;
   const baseFreq = FREQUENCIES[pitch];
+  // Echo delay FX on Echo event (only on player's sound)
+  let outputDest = ctx.destination;
+  if (gameState === 'player_turn' && turnEvent === TURN_EVENTS.ECHO) {
+    const delay = ctx.createDelay(0.4);
+    delay.delayTime.value = 0.15;
+    const wet = ctx.createGain(); wet.gain.value = 0.18;
+    const dry = ctx.createGain(); dry.gain.value = 1.0;
+    dry.connect(ctx.destination);
+    delay.connect(ctx.destination);
+    outputDest = { dry, delay, node: ctx.destination };
+  }
 
   if (harmonyPercent >= 100) {
     // Perfect harmony - play a beautiful chord progression
-    playChordProgression(scene, baseFreq, duration);
+    playChordProgression(scene, baseFreq, duration, outputDest);
   } else if (harmonyPercent >= 80) {
     // High harmony - play arpeggio
-    playArpeggio(scene, baseFreq, duration);
+    playArpeggio(scene, baseFreq, duration, outputDest);
   } else if (harmonyPercent >= 60) {
     // Good harmony - play chord with some embellishment
-    playChord(scene, baseFreq, duration);
+    playChord(scene, baseFreq, duration, outputDest);
   } else {
     // Poor harmony - just play single note with some noise
-    playSingleNoteWithEffect(scene, baseFreq, duration);
+    playSingleNoteWithEffect(scene, baseFreq, duration, outputDest);
   }
 }
 
-function playChord(scene, baseFreq, duration) {
+function playChord(scene, baseFreq, duration, out = null) {
   const ctx = scene.sound.context;
   const chordFreqs = [baseFreq, baseFreq * 1.25, baseFreq * 1.5]; // Major chord
 
@@ -2315,7 +2410,8 @@ function playChord(scene, baseFreq, duration) {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    if (out && out.dry) { gain.connect(out.dry); const tap = ctx.createGain(); tap.gain.value = 1; gain.connect(out.delay); }
+    else gain.connect(ctx.destination);
 
     osc.frequency.value = freq;
     osc.type = index === 0 ? 'sine' : 'triangle'; // Mix waveforms
@@ -2329,7 +2425,7 @@ function playChord(scene, baseFreq, duration) {
   });
 }
 
-function playArpeggio(scene, baseFreq, duration) {
+function playArpeggio(scene, baseFreq, duration, out = null) {
   const ctx = scene.sound.context;
   const arpeggio = [baseFreq, baseFreq * 1.189, baseFreq * 1.5, baseFreq * 1.189]; // Up and down
   const noteDuration = duration / arpeggio.length;
@@ -2338,7 +2434,8 @@ function playArpeggio(scene, baseFreq, duration) {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    if (out && out.dry) { gain.connect(out.dry); const tap = ctx.createGain(); tap.gain.value = 1; gain.connect(out.delay); }
+    else gain.connect(ctx.destination);
 
     osc.frequency.value = freq;
     osc.type = 'sine';
@@ -2352,7 +2449,7 @@ function playArpeggio(scene, baseFreq, duration) {
   });
 }
 
-function playChordProgression(scene, baseFreq, duration) {
+function playChordProgression(scene, baseFreq, duration, out = null) {
   const ctx = scene.sound.context;
   const progression = [
     [baseFreq, baseFreq * 1.25, baseFreq * 1.5],     // I
@@ -2367,7 +2464,8 @@ function playChordProgression(scene, baseFreq, duration) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      if (out && out.dry) { gain.connect(out.dry); const tap = ctx.createGain(); tap.gain.value = 1; gain.connect(out.delay); }
+      else gain.connect(ctx.destination);
 
       osc.frequency.value = freq;
       osc.type = noteIndex === 0 ? 'sine' : 'triangle';
@@ -2385,14 +2483,15 @@ function playChordProgression(scene, baseFreq, duration) {
   addSparkleEffect(scene, baseFreq * 2, duration);
 }
 
-function playSingleNoteWithEffect(scene, freq, duration) {
+function playSingleNoteWithEffect(scene, freq, duration, out = null) {
   const ctx = scene.sound.context;
 
   // Main note
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  if (out && out.dry) { gain.connect(out.dry); const tap = ctx.createGain(); tap.gain.value = 1; gain.connect(out.delay); }
+  else gain.connect(ctx.destination);
 
   osc.frequency.value = freq;
   osc.type = 'sawtooth'; // More aggressive sound
@@ -2454,6 +2553,36 @@ function addNoiseEffect(scene, duration) {
   gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
 
   noiseSource.start(ctx.currentTime);
+}
+
+// Audio FX helpers
+function duckBackground(scene, amount = 0.3, ms = 200) {
+  if (!backgroundMusic || !backgroundMusic.masterGain) return;
+  const g = backgroundMusic.masterGain;
+  const ctx = scene.sound.context;
+  const now = ctx.currentTime;
+  try {
+    const start = g.gain.value;
+    g.gain.setTargetAtTime(Math.max(0.2, start * (1 - amount)), now, 0.03);
+    setTimeout(() => {
+      if (backgroundMusic && backgroundMusic.masterGain) {
+        backgroundMusic.masterGain.gain.setTargetAtTime(1.0, ctx.currentTime, 0.2);
+      }
+    }, ms);
+  } catch (e) {}
+}
+
+function playPerc(scene) {
+  const ctx = scene.sound.context;
+  const noise = ctx.createBuffer(1, 2048, ctx.sampleRate);
+  const data = noise.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+  const src = ctx.createBufferSource(); src.buffer = noise;
+  const filt = ctx.createBiquadFilter(); filt.type = 'highpass'; filt.frequency.value = 1200;
+  const gain = ctx.createGain(); gain.gain.value = 0.15;
+  src.connect(filt); filt.connect(gain);
+  gain.connect(ctx.destination);
+  src.start(); src.stop(ctx.currentTime + 0.07);
 }
 
 function animateAttack(scene, graphics, fromX, fromY, toX, toY, strength, combo = 0) {
