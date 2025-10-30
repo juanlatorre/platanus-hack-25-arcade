@@ -43,13 +43,24 @@ function drawBird(graphics, x, y, size, bodyColor, isZarapito = false, facing = 
   const bodyTilt = animParams.bodyTilt || 0; // Body tilt angle
   const wingOffset = animParams.wingOffset || 0; // Wing movement offset
   const headBob = animParams.headBob || 0; // Head bobbing
+  const colorFlash = animParams.colorFlash || 1.0; // Color flash for hit effect
+  
+  // Apply color flash effect (red tint when hit)
+  let finalColor = bodyColor;
+  if (colorFlash > 1.0) {
+    // Blend with red for hit effect
+    const r = Math.min(255, ((bodyColor >> 16) & 0xFF) * (1 + (colorFlash - 1) * 2));
+    const g = Math.max(0, ((bodyColor >> 8) & 0xFF) * (1 - (colorFlash - 1) * 0.5));
+    const b = Math.max(0, (bodyColor & 0xFF) * (1 - (colorFlash - 1) * 0.5));
+    finalColor = (r << 16) | (g << 8) | b;
+  }
   
   // Apply body tilt (subtle rotation effect by offsetting x)
   const tiltOffsetX = Math.sin(bodyTilt) * size * 0.1;
   const tiltOffsetY = Math.cos(bodyTilt) * size * 0.05;
   
   // Elongated neck and head (with animation)
-  graphics.fillStyle(bodyColor, 1);
+  graphics.fillStyle(finalColor, 1);
   const neckX = x + facing * size * 0 + Math.sin(neckAngle) * size * 0.1 + tiltOffsetX;
   const neckY = y - size * 0.3 + Math.cos(neckAngle) * size * 0.05 + tiltOffsetY;
   graphics.fillEllipse(neckX, neckY, size * 0.15, size * 0.4); // Neck
@@ -58,7 +69,7 @@ function drawBird(graphics, x, y, size, bodyColor, isZarapito = false, facing = 
   graphics.fillCircle(headX, headY, size * 0.18); // Head
 
   // Slender body with white underbelly (with tilt)
-  graphics.fillStyle(bodyColor, 1);
+  graphics.fillStyle(finalColor, 1);
   graphics.fillEllipse(x + tiltOffsetX, y + tiltOffsetY, size * 0.35, size * 0.7);
   graphics.fillStyle(0xf5f5f5, 1);
   graphics.fillEllipse(x + tiltOffsetX, y + size * 0.2 + tiltOffsetY, size * 0.3, size * 0.4);
@@ -78,7 +89,7 @@ function drawBird(graphics, x, y, size, bodyColor, isZarapito = false, facing = 
   graphics.strokePath();
 
   // Pointed folded wings with feather details (with wing animation)
-  graphics.fillStyle(bodyColor, 0.9);
+  graphics.fillStyle(finalColor, 0.9);
   const wingYOffset = wingOffset * size * 0.15;
   graphics.beginPath();
   graphics.moveTo(x + facing * (-size * 0.15) + tiltOffsetX, y - size * 0.1 + tiltOffsetY + wingYOffset);
@@ -229,6 +240,14 @@ function create() {
   this.aiBirdBodyTilt = { value: 0 };
   this.aiBirdWingOffset = { value: 0 };
   this.aiBirdHeadBob = { value: 0 };
+  
+  // Attack and damage animation states
+  this.playerBirdX = { value: 150, baseX: 150 };
+  this.aiBirdX = { value: 650, baseX: 650 };
+  this.playerBirdColor = { value: 1.0 }; // Color multiplier for flash effect
+  this.aiBirdColor = { value: 1.0 };
+  this.isAttacking = { player: false, ai: false };
+  this.isHit = { player: false, ai: false };
   
   // Player bird - vertical bobbing (smooth breathing)
   this.tweens.add({
@@ -435,13 +454,16 @@ function update(time, delta) {
     // Draw birds (always visible in gameplay) - bigger size with dynamic idle animation
     const playerY = this.playerBirdY ? this.playerBirdY.value : 200;
     const aiY = this.aiBirdY ? this.aiBirdY.value : 200;
+    const playerX = this.playerBirdX ? this.playerBirdX.value : 150;
+    const aiX = this.aiBirdX ? this.aiBirdX.value : 650;
     
     // Player bird animation parameters
     const playerAnim = {
       neckAngle: this.playerBirdNeckAngle ? this.playerBirdNeckAngle.value : 0,
       bodyTilt: this.playerBirdBodyTilt ? this.playerBirdBodyTilt.value : 0,
       wingOffset: this.playerBirdWingOffset ? this.playerBirdWingOffset.value : 0,
-      headBob: this.playerBirdHeadBob ? this.playerBirdHeadBob.value : 0
+      headBob: this.playerBirdHeadBob ? this.playerBirdHeadBob.value : 0,
+      colorFlash: this.playerBirdColor ? this.playerBirdColor.value : 1.0
     };
     
     // AI bird animation parameters
@@ -449,13 +471,14 @@ function update(time, delta) {
       neckAngle: this.aiBirdNeckAngle ? this.aiBirdNeckAngle.value : 0,
       bodyTilt: this.aiBirdBodyTilt ? this.aiBirdBodyTilt.value : 0,
       wingOffset: this.aiBirdWingOffset ? this.aiBirdWingOffset.value : 0,
-      headBob: this.aiBirdHeadBob ? this.aiBirdHeadBob.value : 0
+      headBob: this.aiBirdHeadBob ? this.aiBirdHeadBob.value : 0,
+      colorFlash: this.aiBirdColor ? this.aiBirdColor.value : 1.0
     };
     
-    // Draw with dynamic animations
+    // Draw with dynamic animations (using animated X positions)
     const baseSize = 70;
-    drawBird(this.graphics, 150, playerY, baseSize, 0x8b4513, true, 1, playerAnim);
-    drawBird(this.graphics, 650, aiY, baseSize, 0x654321, false, -1, aiAnim);
+    drawBird(this.graphics, playerX, playerY, baseSize, 0x8b4513, true, 1, playerAnim);
+    drawBird(this.graphics, aiX, aiY, baseSize, 0x654321, false, -1, aiAnim);
 
     // Environmental tones - compact display
     this.windText.setText('🌬️ ' + environmentalTones.wind).setVisible(true);
@@ -732,10 +755,22 @@ function applyEffects(scene) {
   let damage = baseDamage;
   
   if (gameState === 'player_turn') {
+    // Animate player attack
+    animateBirdAttack(scene, true);
+    // Animate AI hit
+    if (damage > 0) {
+      animateBirdHit(scene, false);
+    }
     aiHealth = Math.max(0, aiHealth - damage);
     playerHealth = Math.min(100, playerHealth + healAmount);
     score += damage * 10 + (combo * 5) + (harmonyMeter === 100 ? 100 : 0);
   } else {
+    // Animate AI attack
+    animateBirdAttack(scene, false);
+    // Animate player hit
+    if (damage > 0) {
+      animateBirdHit(scene, true);
+    }
     playerHealth = Math.max(0, playerHealth - damage);
     aiHealth = Math.min(100, aiHealth + healAmount);
   }
@@ -773,10 +808,16 @@ function applyEffects(scene) {
   lastHarmony = harmonyMeter;
   checkWinLose(scene);
 
+  // Get current bird positions for attack visualization
+  const playerX = scene.playerBirdX ? scene.playerBirdX.value : 150;
+  const playerY = scene.playerBirdY ? scene.playerBirdY.value : 200;
+  const aiX = scene.aiBirdX ? scene.aiBirdX.value : 650;
+  const aiY = scene.aiBirdY ? scene.aiBirdY.value : 200;
+  
   if (gameState === 'player_turn') {
-    animateAttack(scene, scene.graphics, 150, 300, 650, 300, harmonyMeter, combo);
+    animateAttack(scene, scene.graphics, playerX, playerY, aiX, aiY, harmonyMeter, combo);
   } else {
-    animateAttack(scene, scene.graphics, 650, 300, 150, 300, harmonyMeter, combo);
+    animateAttack(scene, scene.graphics, aiX, aiY, playerX, playerY, harmonyMeter, combo);
   }
   
   // Show combo feedback
@@ -856,4 +897,93 @@ function animateAttack(scene, graphics, fromX, fromY, toX, toY, strength, combo 
     graphics.fillStyle(strength === 100 ? 0xff00ff : 0xffff00, 1);
     graphics.fillCircle(px, py, 3 + combo);
   }
+}
+
+function animateBirdAttack(scene, isPlayer) {
+  const birdX = isPlayer ? scene.playerBirdX : scene.aiBirdX;
+  const baseX = isPlayer ? 150 : 650;
+  const attackDistance = isPlayer ? 100 : -100; // Player attacks right, AI attacks left
+  
+  if (isPlayer) scene.isAttacking.player = true;
+  else scene.isAttacking.ai = true;
+  
+  // Lunge forward
+  scene.tweens.add({
+    targets: birdX,
+    value: baseX + attackDistance,
+    duration: 150,
+    ease: 'Power2',
+    yoyo: true,
+    repeat: 0,
+    onComplete: () => {
+      birdX.value = baseX;
+      if (isPlayer) scene.isAttacking.player = false;
+      else scene.isAttacking.ai = false;
+    }
+  });
+  
+  // Wing spread animation during attack
+  const wingParam = isPlayer ? scene.playerBirdWingOffset : scene.aiBirdWingOffset;
+  const originalValue = wingParam.value;
+  scene.tweens.add({
+    targets: wingParam,
+    value: originalValue + 0.3,
+    duration: 100,
+    yoyo: true,
+    repeat: 1,
+    ease: 'Power2'
+  });
+}
+
+function animateBirdHit(scene, isPlayer) {
+  const birdX = isPlayer ? scene.playerBirdX : scene.aiBirdX;
+  const birdColor = isPlayer ? scene.playerBirdColor : scene.aiBirdColor;
+  const baseX = isPlayer ? 150 : 650;
+  const knockback = isPlayer ? -20 : 20;
+  
+  if (isPlayer) scene.isHit.player = true;
+  else scene.isHit.ai = true;
+  
+  // Knockback animation
+  scene.tweens.add({
+    targets: birdX,
+    value: baseX + knockback,
+    duration: 100,
+    ease: 'Power2',
+    yoyo: true,
+    repeat: 2,
+    onComplete: () => {
+      birdX.value = baseX;
+      if (isPlayer) scene.isHit.player = false;
+      else scene.isHit.ai = false;
+    }
+  });
+  
+  // Color flash (red flash effect)
+  scene.tweens.add({
+    targets: birdColor,
+    value: 2.0, // Bright red flash
+    duration: 50,
+    yoyo: true,
+    repeat: 5,
+    ease: 'Linear',
+    onComplete: () => {
+      birdColor.value = 1.0;
+    }
+  });
+  
+  // Shake effect
+  const shakeTarget = isPlayer ? scene.playerBirdY : scene.aiBirdY;
+  const originalY = shakeTarget.value;
+  scene.tweens.add({
+    targets: shakeTarget,
+    value: originalY + 5,
+    duration: 30,
+    yoyo: true,
+    repeat: 6,
+    ease: 'Linear',
+    onComplete: () => {
+      shakeTarget.value = originalY;
+    }
+  });
 }
