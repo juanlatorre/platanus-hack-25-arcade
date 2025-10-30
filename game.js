@@ -1662,16 +1662,18 @@ function createRhythmDurationControls(scene) {
 
   // Rhythm control
   if (!scene.rhythmControl) {
-    scene.rhythmControl = scene.add.text(280, 460, 'Ritmo: ' + RHYTHMS[selectedMelody.rhythm], {
-      fontSize: '12px',
-      color: '#00ffff',
-      backgroundColor: 'rgba(0, 255, 255, 0.1)',
-      padding: { x: 6, y: 3 }
+    scene.rhythmControl = scene.add.text(280, 460, '🎵 ' + RHYTHMS[selectedMelody.rhythm] + ' ▶️', {
+      fontSize: '16px',
+      color: '#ffffff',
+      backgroundColor: 'rgba(0, 150, 255, 0.9)',
+      padding: { x: 12, y: 6 },
+      borderRadius: 6,
+      fontStyle: 'bold'
     }).setOrigin(0.5).setInteractive();
 
     scene.rhythmControl.on('pointerdown', () => {
       selectedMelody.rhythm = (selectedMelody.rhythm + 1) % RHYTHMS.length;
-      scene.rhythmControl.setText('Ritmo: ' + RHYTHMS[selectedMelody.rhythm]);
+      scene.rhythmControl.setText('🎵 ' + RHYTHMS[selectedMelody.rhythm] + ' ▶️');
       calculateHarmony();
       updateAttackButton(scene, harmony);
       // Update the main display
@@ -1679,32 +1681,44 @@ function createRhythmDurationControls(scene) {
         const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
         scene.melodyInfoText.setText(melodyInfo);
       }
+      // Add click feedback
+      scene.tweens.add({
+        targets: scene.rhythmControl,
+        scaleX: 0.95,
+        scaleY: 0.95,
+        duration: 100,
+        yoyo: true
+      });
     });
 
     scene.rhythmControl.on('pointerover', () => {
-      scene.rhythmControl.setBackgroundColor('rgba(0, 255, 255, 0.2)');
+      scene.rhythmControl.setBackgroundColor('rgba(0, 200, 255, 1)');
+      scene.rhythmControl.setScale(1.05);
     });
 
     scene.rhythmControl.on('pointerout', () => {
-      scene.rhythmControl.setBackgroundColor('rgba(0, 255, 255, 0.1)');
-    scene.rhythmControl.setVisible(false); // Hidden by default, shown only during gameplay
+      scene.rhythmControl.setBackgroundColor('rgba(0, 150, 255, 0.9)');
+      scene.rhythmControl.setScale(1);
     });
+    scene.rhythmControl.setVisible(false); // Hidden by default, shown only during gameplay
   } else {
-    scene.rhythmControl.setText('Ritmo: ' + RHYTHMS[selectedMelody.rhythm]).setVisible(true);
+    scene.rhythmControl.setText('🎵 ' + RHYTHMS[selectedMelody.rhythm] + ' ▶️').setVisible(true);
   }
 
   // Duration control
   if (!scene.durationControl) {
-    scene.durationControl = scene.add.text(520, 460, 'Duración: ' + DURATIONS[selectedMelody.duration], {
-      fontSize: '12px',
-      color: '#ffff00',
-      backgroundColor: 'rgba(255, 255, 0, 0.1)',
-      padding: { x: 6, y: 3 }
+    scene.durationControl = scene.add.text(520, 460, '⏱️ ' + DURATIONS[selectedMelody.duration] + ' ▶️', {
+      fontSize: '16px',
+      color: '#ffffff',
+      backgroundColor: 'rgba(255, 150, 0, 0.9)',
+      padding: { x: 12, y: 6 },
+      borderRadius: 6,
+      fontStyle: 'bold'
     }).setOrigin(0.5).setInteractive();
 
     scene.durationControl.on('pointerdown', () => {
       selectedMelody.duration = (selectedMelody.duration + 1) % DURATIONS.length;
-      scene.durationControl.setText('Duración: ' + DURATIONS[selectedMelody.duration]);
+      scene.durationControl.setText('⏱️ ' + DURATIONS[selectedMelody.duration] + ' ▶️');
       calculateHarmony();
       updateAttackButton(scene, harmony);
       // Update the main display
@@ -1712,18 +1726,28 @@ function createRhythmDurationControls(scene) {
         const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
         scene.melodyInfoText.setText(melodyInfo);
       }
+      // Add click feedback
+      scene.tweens.add({
+        targets: scene.durationControl,
+        scaleX: 0.95,
+        scaleY: 0.95,
+        duration: 100,
+        yoyo: true
+      });
     });
 
     scene.durationControl.on('pointerover', () => {
-      scene.durationControl.setBackgroundColor('rgba(255, 255, 0, 0.2)');
+      scene.durationControl.setBackgroundColor('rgba(255, 200, 0, 1)');
+      scene.durationControl.setScale(1.05);
     });
 
     scene.durationControl.on('pointerout', () => {
-      scene.durationControl.setBackgroundColor('rgba(255, 255, 0, 0.1)');
-    scene.durationControl.setVisible(false); // Hidden by default, shown only during gameplay
+      scene.durationControl.setBackgroundColor('rgba(255, 150, 0, 0.9)');
+      scene.durationControl.setScale(1);
     });
+    scene.durationControl.setVisible(false); // Hidden by default, shown only during gameplay
   } else {
-    scene.durationControl.setText('Duración: ' + DURATIONS[selectedMelody.duration]).setVisible(true);
+    scene.durationControl.setText('⏱️ ' + DURATIONS[selectedMelody.duration] + ' ▶️').setVisible(true);
   }
 }
 
