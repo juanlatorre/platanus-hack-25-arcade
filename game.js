@@ -348,7 +348,7 @@ function create() {
 
   this.playerHPText = this.add.text(125, 28, 'HP: 100/100', { fontSize: '12px', color: '#00ff00' }).setOrigin(0.5).setVisible(false);
   this.aiHPText = this.add.text(675, 28, 'HP: 100/100', { fontSize: '12px', color: '#ff0000' }).setOrigin(0.5).setVisible(false);
-  this.scoreText = this.add.text(400, 10, '0', { fontSize: '14px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
+  this.scoreText = this.add.text(400, 10, '⭐ Puntos: 0', { fontSize: '16px', color: '#00ffff', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false);
 
   this.input.on('pointerdown', () => {
     if (this.sound.context.state === 'suspended') this.sound.context.resume();
@@ -649,7 +649,7 @@ function update(time, delta) {
     this.birdsText.setText('🐦 ' + environmentalTones.birds).setVisible(true);
     
     // Score only shown during gameplay (not cluttering defeat/victory)
-    this.scoreText.setText(score).setVisible(true);
+    this.scoreText.setText('⭐ Puntos: ' + score).setVisible(true);
 
     if (gameState === 'player_turn') {
       this.turnText.setText('Turno ' + turnCount).setColor('#00ff00').setVisible(true).setPosition(400, 30);
