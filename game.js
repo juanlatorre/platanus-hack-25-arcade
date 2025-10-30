@@ -345,6 +345,10 @@ function create() {
 
   this.input.on('pointerdown', () => {
     if (this.sound.context.state === 'suspended') this.sound.context.resume();
+    // Ensure background music starts after first user gesture
+    if (backgroundMusicEnabled && !backgroundMusic) {
+      startBackgroundMusic(this);
+    }
   });
 
   this.timerText = this.add.text(500, 70, '7s', { fontSize: '12px', color: '#ffffff' }).setVisible(false);
@@ -667,6 +671,27 @@ function update(time, delta) {
     // Score only shown during gameplay (not cluttering defeat/victory)
     this.scoreText.setText('⭐ Puntos: ' + score).setVisible(true);
 
+    // Draw combo bar (simple UI)
+    drawComboBar(this);
+
+    // Turn event banner
+    if (gameState === 'player_turn') {
+      let evtText = '';
+      if (turnEvent === TURN_EVENTS.STORM) evtText = '🌩️ TURNO TORMENTA';
+      else if (turnEvent === TURN_EVENTS.ECHO) evtText = '🎵 TURNO ECO';
+      if (evtText) {
+        if (!this.turnEventText) {
+          this.turnEventText = this.add.text(400, 82, evtText, { fontSize: '12px', color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.6)', padding: { x: 6, y: 3 } }).setOrigin(0.5);
+        } else {
+          this.turnEventText.setText(evtText).setVisible(true);
+        }
+      } else if (this.turnEventText) {
+        this.turnEventText.setVisible(false);
+      }
+    } else if (this.turnEventText) {
+      this.turnEventText.setVisible(false);
+    }
+
     if (gameState === 'player_turn') {
       // Ensure tuning bar is initialized each player turn
       if (!tuningBarActive || !tuningBar.awaitingClick) {
@@ -874,6 +899,10 @@ let turnTimer = 7000; // 7 seconds
 let combo = 0;
 let missStreak = 0; // consecutive fails (0⭐)
 let grantEasyTurn = false; // next player turn will have wider zones
+const COMBO_THRESHOLD = 4;
+let finisherReady = false;
+const TURN_EVENTS = { STORM: 'storm', ECHO: 'echo' };
+let turnEvent = null;
 let score = 0;
 let lastHarmony = 0;
 let lastSuccessfulPitch = { player: null, ai: null }; // For musical echo power-up
@@ -1134,6 +1163,22 @@ function applyEffects(scene) {
     if (combo > 1) baseDamage += combo;
   } else if (harmony < 50) {
     combo = 0;
+  }
+
+  // Finisher: if combo meets threshold, empower this hit and reset
+  if (combo >= COMBO_THRESHOLD) {
+    finisherReady = true;
+    const finisherMult = harmony >= 80 ? 1.8 : 1.5; // stronger if high harmony
+    baseDamage = Math.floor(baseDamage * finisherMult + 4);
+    combo = 0; // consume combo
+
+    // Visual feedback for finisher
+    const finText = scene.add.text(400, 180, '¡FINISHER!', {
+      fontSize: '40px', color: '#ff00ff', stroke: '#000000', strokeThickness: 5, fontStyle: 'bold'
+    }).setOrigin(0.5);
+    scene.tweens.add({ targets: finText, alpha: 0, y: finText.y - 20, scale: 1.2, duration: 900, onComplete: () => finText.destroy() });
+    scene.cameras.main.shake(200, 0.02);
+    finisherReady = false;
   }
   
   // Special moves and effects based on harmony (reduced damage for balance)
@@ -1909,6 +1954,27 @@ function drawMountains(graphics) {
 }
 
 // ===================== Tuning Bar System =====================
+function drawComboBar(scene) {
+  const g = scene.graphics;
+  const x = 260, y = 50, w = 280, h = 8;
+  const ratio = Math.max(0, Math.min(1, combo / COMBO_THRESHOLD));
+  // background
+  g.fillStyle(0x000000, 0.5);
+  g.fillRect(x, y, w, h);
+  g.lineStyle(1, 0xffffff, 0.8);
+  g.strokeRect(x, y, w, h);
+  // fill
+  const fillColor = ratio >= 1 ? 0xff00ff : 0xffff00;
+  g.fillStyle(fillColor, 0.9);
+  g.fillRect(x, y, w * ratio, h);
+
+  // label
+  if (!scene.comboText) {
+    scene.comboText = scene.add.text(x + w / 2, y - 10, '', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5).setVisible(true);
+  }
+  const txt = ratio >= 1 ? 'FINISHER LISTO' : `Combo x${Math.max(1, combo)}`;
+  scene.comboText.setText(txt).setVisible(true);
+}
 function initTuningBar(scene) {
   tuningBarActive = true;
   tuningBar.awaitingClick = true;
@@ -1985,6 +2051,18 @@ function initTuningBar(scene) {
     // Probabilidad de zona ⭐⭐ extra
     if (Math.random() < 0.3) tuningBar.zones.push({ center: Math.random(), width: Math.max(0.04, w2 * 0.8 + flockBoost * 0.3), stars: 2, moveSpeed: centerMove * 0.5 });
   }
+
+  // Turn events (ocacionales)
+  turnEvent = null;
+  if (Math.random() < 0.25) { // 25% de probabilidad de evento
+    turnEvent = Math.random() < 0.5 ? TURN_EVENTS.STORM : TURN_EVENTS.ECHO;
+  }
+
+  if (turnEvent === TURN_EVENTS.STORM) {
+    // Tormenta: más jitter y zonas se mueven más
+    tuningBar.jitter += 0.006;
+    tuningBar.zones.forEach(z => { z.moveSpeed = (z.moveSpeed || 0.02) * 2.2; });
+  }
 }
 
 function updateTuningNeedle(timeSec) {
@@ -2053,6 +2131,14 @@ function drawTuningBar(scene, time) {
   const nx = bx + tuningBar.needle * bw;
   g.fillStyle(0xffffff, 1);
   g.fillRect(nx - 2, by - bh, 4, bh * 2);
+
+  // Echo event: dibujar una aguja fantasma sutil
+  if (turnEvent === TURN_EVENTS.ECHO) {
+    const echoOffset = 0.17;
+    const nx2 = bx + ((tuningBar.needle + echoOffset) % 1) * bw;
+    g.fillStyle(0xffffff, 0.35);
+    g.fillRect(nx2 - 1, by - bh, 2, bh * 2);
+  }
 }
 
 function resolveTuningBarClick(scene) {
@@ -2060,19 +2146,28 @@ function resolveTuningBarClick(scene) {
   tuningBar.awaitingClick = false;
 
   // Find best zone match (closest center within width)
-  let bestStars = 0;
-  let minNormDist = Infinity;
-  tuningBar.zones.forEach(z => {
-    const dist = Math.abs(tuningBar.needle - z.center);
-    const norm = dist / Math.max(0.0001, z.width);
-    if (norm <= 1.0) {
-      // inside zone: prioritize higher stars then smaller distance
-      if (z.stars > bestStars || (z.stars === bestStars && norm < minNormDist)) {
-        bestStars = z.stars;
-        minNormDist = norm;
+  function evalNeedle(nv) {
+    let b = 0, d = Infinity;
+    tuningBar.zones.forEach(z => {
+      const dist = Math.abs(nv - z.center);
+      const norm = dist / Math.max(0.0001, z.width);
+      if (norm <= 1.0) {
+        if (z.stars > b || (z.stars === b && norm < d)) { b = z.stars; d = norm; }
       }
+    });
+    return { stars: b, norm: d };
+  }
+
+  const primary = evalNeedle(tuningBar.needle);
+  let bestStars = primary.stars;
+  let minNormDist = primary.norm;
+  if (turnEvent === TURN_EVENTS.ECHO) {
+    const echo = evalNeedle(((tuningBar.needle + 0.17) % 1));
+    if (echo.stars > bestStars || (echo.stars === bestStars && echo.norm < minNormDist)) {
+      bestStars = echo.stars;
+      minNormDist = echo.norm;
     }
-  });
+  }
 
   // Map needle to pitch index for flavor
   const pitchIndex = Math.min(PITCHES.length - 1, Math.max(0, Math.floor(tuningBar.needle * PITCHES.length)));
