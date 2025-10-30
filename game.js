@@ -362,7 +362,7 @@ function create() {
 
   this.instructionsText = this.add.text(400, 560, 'W/S: Altura  |  A/D: Velocidad  |  Q/E: Duración  |  ESPACIO: Atacar  |  M: Música', { fontSize: '9px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
   this.windText = this.add.text(100, 420, '', { fontSize: '14px', color: '#00ffff' }).setVisible(false);
-  this.birdsText = this.add.text(700, 420, '', { fontSize: '14px', color: '#ff8800' }).setVisible(false);
+  this.birdsText = this.add.text(650, 420, '', { fontSize: '14px', color: '#ff8800' }).setOrigin(0.5).setVisible(false);
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
 
   console.log('Create called'); // Debug
@@ -793,7 +793,7 @@ function update(time, delta) {
 
     // Wind/Birds positioned near selector
     this.windText.setPosition(100, 420).setVisible(true);
-    this.birdsText.setPosition(700, 420).setVisible(true);
+    this.birdsText.setPosition(650, 420).setVisible(true);
 
     // Power-up indicators
     drawPowerUpIndicators(this.graphics, activePowerUps, powerUpTurnsRemaining);
