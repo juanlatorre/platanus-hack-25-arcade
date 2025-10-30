@@ -265,44 +265,6 @@ function create() {
   // Tutorial texts
   this.tutorialTexts = [];
 
-  // Keyboard input for SPACE (only works during gameplay)
-  this.input.keyboard.on('keydown-SPACE', () => {
-    if (gameState === 'victory' || gameState === 'defeat') {
-      // Restart game
-      resetGame(this);
-    } else if (gameState === 'player_turn') {
-      // Don't allow actions if game has ended
-      if (gameState === 'victory' || gameState === 'defeat') return;
-
-      // Check if player is stunned - skip turn
-      if (playerStunned && stunTurnsRemaining.player > 0) {
-        stunTurnsRemaining.player--;
-
-        // Show stunned message
-        this.feedbackText.setAlpha(1).setVisible(true).setText('¡ATURDIDO - Pierdes turno!');
-        this.tweens.add({ targets: this.feedbackText, alpha: 0, duration: 1500, onComplete: () => this.feedbackText.setVisible(false) });
-
-        // Show stun effect on player bird
-        showStunEffect(this, true);
-
-        // If stun turns are over, clear stun status
-        if (stunTurnsRemaining.player === 0) {
-          playerStunned = false;
-        }
-
-        // Skip to AI turn
-        gameState = 'ai_turn';
-        this.turnText.setText('Turno ' + turnCnt + ' - IA').setColor('#ff0000');
-        this.time.delayedCall(1000, () => aiPlay(this));
-        return;
-      }
-
-      // SPACE now does nothing - use mouse button to attack
-      return;
-    }
-  });
-
-
   this.input.keyboard.on('keydown-M', () => {
     const wasEnabled = backgroundMusicEnabled;
     backgroundMusicEnabled = !backgroundMusicEnabled;
@@ -642,6 +604,29 @@ function update(time, delta) {
 
     if (gameState === 'player_turn') {
       this.turnText.setText('Turno ' + turnCnt).setColor('#00ff00').setVisible(true).setPosition(400, 30);
+
+      // Check if player is stunned at start of turn - skip automatically
+      if (playerStunned && stunTurnsRemaining.player > 0) {
+        stunTurnsRemaining.player--;
+
+        // Show stunned message
+        this.feedbackText.setAlpha(1).setVisible(true).setText('¡ATURDIDO - Pierdes turno!');
+        this.tweens.add({ targets: this.feedbackText, alpha: 0, duration: 1500, onComplete: () => this.feedbackText.setVisible(false) });
+
+        // Show stun effect on player bird
+        showStunEffect(this, true);
+
+        // If stun turns are over, clear stun status
+        if (stunTurnsRemaining.player === 0) {
+          playerStunned = false;
+        }
+
+        // Skip to AI turn immediately
+        gameState = 'ai_turn';
+        this.turnText.setText('Turno ' + turnCnt + ' - IA').setColor('#ff0000');
+        this.time.delayedCall(1000, () => aiPlay(this));
+        return;
+      }
       
       // Update harmony in real-time
       calculateHarmony();
