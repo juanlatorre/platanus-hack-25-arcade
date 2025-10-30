@@ -49,18 +49,6 @@ function drawBird(graphics, x, y, size, bodyColor, isZarapito = false, facing = 
   graphics.fillStyle(0xf5f5f5, 1);
   graphics.fillEllipse(x, y + size * 0.2, size * 0.3, size * 0.4);
 
-  // Mottled plumage (adjust spots x by facing)
-  graphics.fillStyle(0xf5f5f5, 0.8);
-  for (let i = 0; i < 30; i++) {
-    const spotX = x + facing * ((Math.random() - 0.5) * size * 0.35);
-    const spotY = y + (Math.random() - 0.5) * size * 0.7 - size * 0.1;
-    graphics.fillCircle(spotX, spotY, size * 0.015 + Math.random() * size * 0.02);
-  }
-
-  // Head with bold dark stripes (mirror x)
-  graphics.fillStyle(0x000000, 0.6);
-  graphics.fillRect(x + facing * (-size * 0.1), y - size * 0.6, size * 0.35, size * 0.03);
-  graphics.fillRect(x + facing * (-size * 0.05), y - size * 0.55, size * 0.3, size * 0.025);
 
   // Dark eye (mirror x)
   graphics.fillStyle(0x000000, 1);
@@ -103,11 +91,6 @@ function drawBird(graphics, x, y, size, bodyColor, isZarapito = false, facing = 
   graphics.fillTriangle(rightX + facing * (-size * 0.05), y + size * 0.8, rightX, y + size * 0.8, rightX + facing * (-size * 0.025), y + size * 0.85);
   graphics.fillRect(rightX + facing * (-size * 0.07), y + size * 0.8, size * 0.04, size * 0.01);
   graphics.fillRect(rightX + facing * size * 0.02, y + size * 0.8, size * 0.04, size * 0.01);
-
-  if (isZarapito) {
-    graphics.fillStyle(0xff0000, 1);
-    graphics.fillTriangle(x + facing * size * 0.05, y - size * 0.65, x + facing * size * 0.1, y - size * 0.7, x + facing * size * 0.15, y - size * 0.65);
-  }
 }
 
 function create() {
@@ -133,6 +116,7 @@ function create() {
     if (gameState === 'menu') {
       gameState = 'player_turn';
       turnCount = 1;
+      turnTimer = 10000;
       this.menuTexts.forEach(text => text.destroy()); // Clear menu
       this.turnText.setVisible(true);
     }
@@ -193,6 +177,8 @@ function create() {
     if (this.sound.context.state === 'suspended') this.sound.context.resume();
     console.log('Audio resumed on click');
   });
+
+  this.timerText = this.add.text(400, 70, 'Time: 10s', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
 }
 
 function drawMenu(scene) {
@@ -202,43 +188,71 @@ function drawMenu(scene) {
   drawBird(scene.graphics, 600, 400, 25, 0x654321, true, -1);
 }
 
-function update() {
+function update(time, delta) {
   this.graphics.clear();
 
   if (gameState === 'menu') {
     drawMenu(this);
     this.menuTexts.forEach(t => t.setVisible(true));
     this.turnText.setVisible(false);
-  } else if (gameState === 'player_turn') {
-    console.log('Drawing bird - graphics defined:', !!this.graphics);
+  } else if (gameState === 'player_turn' || gameState === 'ai_turn') {
+    // Draw birds (always visible in gameplay)
     drawBird(this.graphics, 150, 300, 50, 0x8b4513, true, 1);
     drawBird(this.graphics, 650, 300, 50, 0x654321, false, -1);
-    this.turnText.setText('Player Turn ' + turnCount).setColor('#00ff00').setVisible(true);
 
-    // Melody UI
-    this.pitchText.setText('Pitch: ' + PITCHES[selectedMelody.pitch]).setVisible(true);
-    this.rhythmText.setText('Rhythm: ' + RHYTHMS[selectedMelody.rhythm]).setVisible(true);
-    this.durationText.setText('Duration: ' + DURATIONS[selectedMelody.duration]).setVisible(true);
-    this.harmonyText.setText('Harmony: ' + harmonyMeter + '%').setVisible(true);
-
-    // Instructions background rect
+    // Instructions background rect (always visible in gameplay)
     this.graphics.fillStyle(0x000000, 0.5);
     this.graphics.fillRect(200, 480, 400, 80);
     this.graphics.lineStyle(1, 0xffff00, 1);
-    this.graphics.strokeRect(200, 480, 400, 80); // Bright border
+    this.graphics.strokeRect(200, 480, 400, 80);
 
-    // Instructions text (re-add if destroyed, at y=530)
+    // Instructions text (always visible in gameplay)
     if (!this.instructionsText || !this.instructionsText.active) {
       this.instructionsText = this.add.text(400, 530, 'W: Cycle Pitch (match tones!)\nA: Cycle Rhythm\nS: Duration + | D: Duration -\nSPACE: Play Harmony', { fontSize: '14px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
     }
     this.instructionsText.setVisible(true);
-    console.log('Instructions visible');
 
-    // Note: Texts recreate each frame—optimize later by creating once and updating text.
-    console.log('Rendering player turn');
-  } else if (gameState === 'ai_turn') {
-    this.turnText.setText('AI Turn ' + turnCount).setColor('#ff0000').setVisible(true);
-    console.log('Rendering AI turn');
+    // Environmental tones (always visible in gameplay)
+    this.windText.setText('Wind: ' + environmentalTones.wind).setVisible(true);
+    this.birdsText.setText('Birds: ' + environmentalTones.birds).setVisible(true);
+
+    if (gameState === 'player_turn') {
+      this.turnText.setText('Player Turn ' + turnCount).setColor('#00ff00').setVisible(true);
+
+      // Melody UI (only in player turn)
+      this.pitchText.setText('Pitch: ' + PITCHES[selectedMelody.pitch]).setVisible(true);
+      this.rhythmText.setText('Rhythm: ' + RHYTHMS[selectedMelody.rhythm]).setVisible(true);
+      this.durationText.setText('Duration: ' + DURATIONS[selectedMelody.duration]).setVisible(true);
+      this.harmonyText.setText('Harmony: ' + harmonyMeter + '%').setVisible(true);
+
+      turnTimer -= delta;
+      this.timerText.setText('Time: ' + Math.ceil(turnTimer / 1000) + 's').setVisible(true);
+
+      // Timer bar
+      this.graphics.fillStyle(0x00ffff, 1);
+      this.graphics.fillRect(350, 140, (turnTimer / 10000) * 100, 10);
+      this.graphics.strokeRect(350, 140, 100, 10);
+
+      if (turnTimer <= 0) {
+        // Auto random
+        selectedMelody.pitch = Math.floor(Math.random() * PITCHES.length);
+        selectedMelody.rhythm = Math.floor(Math.random() * RHYTHMS.length);
+        selectedMelody.duration = Math.floor(Math.random() * DURATIONS.length);
+        playHarmony(this);
+        gameState = 'ai_turn';
+        this.turnText.setText('AI Turn ' + turnCount).setColor('#ff0000');
+        this.time.delayedCall(1000, () => aiPlay(this));
+        turnTimer = 10000;
+      }
+    } else if (gameState === 'ai_turn') {
+      this.turnText.setText('AI Turn ' + turnCount).setColor('#ff0000').setVisible(true);
+      // Hide melody UI during AI turn
+      this.pitchText.setVisible(false);
+      this.rhythmText.setVisible(false);
+      this.durationText.setVisible(false);
+      this.harmonyText.setVisible(false);
+      this.timerText.setVisible(false);
+    }
   }
 
   // Add health bars in update() player_turn/ai_turn using graphics (after clear):
@@ -275,6 +289,7 @@ function update() {
     this.birdsText.setVisible(false);
     this.playerHPText.setVisible(false);
     this.aiHPText.setVisible(false);
+    this.timerText.setVisible(false);
   }
 
   // Note: These texts recreate each frame—optimize by creating once if needed, but fine for now.
@@ -286,6 +301,7 @@ const FREQUENCIES = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00
 
 let environmentalTones = { wind: '', birds: '' };
 let harmonyMeter = 0;
+let turnTimer = 10000;
 
 function generateTones() {
   environmentalTones.wind = PITCHES[Math.floor(Math.random() * PITCHES.length)];
@@ -325,10 +341,18 @@ function applyEffects(scene) {
     else playerHealth -= 5;
   }
   checkWinLose(scene);
+
+  if (gameState === 'player_turn') {
+    animateAttack(scene, scene.graphics, 150, 300, 650, 300, harmonyMeter);
+  } else {
+    animateAttack(scene, scene.graphics, 650, 300, 150, 300, harmonyMeter);
+  }
 }
 
 function aiPlay(scene) {
-  selectedMelody.pitch = Math.floor(Math.random() * PITCHES.length);
+  const targetPitch = Math.random() < 0.5 ? environmentalTones.wind : environmentalTones.birds;
+  selectedMelody.pitch = PITCHES.indexOf(targetPitch);
+  if (selectedMelody.pitch === -1) selectedMelody.pitch = Math.floor(Math.random() * PITCHES.length); // Fallback
   selectedMelody.rhythm = Math.floor(Math.random() * RHYTHMS.length);
   selectedMelody.duration = Math.floor(Math.random() * DURATIONS.length);
   playHarmony(scene);
@@ -339,6 +363,7 @@ function aiPlay(scene) {
 
   scene.feedbackText.setAlpha(1).setVisible(true).setText(`AI Harmony ${harmonyMeter}% - Dealt ${Math.floor(harmonyMeter / 10)} damage!`);
   scene.tweens.add({ targets: scene.feedbackText, alpha: 0, duration: 1500, onComplete: () => scene.feedbackText.setVisible(false) });
+  turnTimer = 10000; // Reset timer for next AI turn
 }
 
 function checkWinLose(scene) {
@@ -363,4 +388,27 @@ function playTone(scene, freq, dur) {
   gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur);
   osc.start(ctx.currentTime);
   osc.stop(ctx.currentTime + dur);
+}
+
+function animateAttack(scene, graphics, fromX, fromY, toX, toY, strength) {
+  if (!graphics) return; // Safety check
+  
+  // Draw attack line
+  graphics.lineStyle(3, 0xffff00, 1);
+  graphics.beginPath();
+  graphics.moveTo(fromX, fromY);
+  graphics.lineTo(toX, toY);
+  graphics.strokePath();
+  
+  // Simple particles (just circles) at impact point
+  for (let i = 0; i < Math.min(strength / 10, 5); i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 20 + Math.random() * 30;
+    const px = toX + Math.cos(angle) * dist;
+    const py = toY + Math.sin(angle) * dist;
+    graphics.fillStyle(0xffff00, 1);
+    graphics.fillCircle(px, py, 3);
+  }
+  
+  // Note: Animation will persist until next update() clears graphics naturally
 }
