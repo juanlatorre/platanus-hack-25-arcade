@@ -339,6 +339,8 @@ function calculateHarmony() {
 
 function applyEffects(scene) {
   let baseDamage = Math.floor(harmonyMeter / 10);
+  let moveName = '';
+  let healAmount = 0;
   
   // Combo system (chain good harmonies)
   if (harmonyMeter >= 50 && lastHarmony >= 50) {
@@ -348,22 +350,67 @@ function applyEffects(scene) {
     combo = 0;
   }
   
-  // Critical hit (100% harmony = double damage)
-  let damage = baseDamage;
+  // Special moves and effects based on harmony
   if (harmonyMeter === 100) {
-    damage = baseDamage * 2;
-    scene.cameras.main.shake(300, 0.02); // Screen shake
-    playTone(scene, 800, 0.3);
+    moveName = 'PERFECT HARMONY!';
+    baseDamage = baseDamage * 2;
+    healAmount = 5; // Heal on perfect
+    scene.cameras.main.shake(300, 0.02);
+    playTone(scene, 880, 0.4);
+    // Particle burst effect
+    scene.graphics.fillStyle(0xff00ff, 1);
+    for (let i = 0; i < 30; i++) {
+      const angle = (i / 30) * Math.PI * 2;
+      const dist = 50 + Math.random() * 100;
+      const px = 400 + Math.cos(angle) * dist;
+      const py = 300 + Math.sin(angle) * dist;
+      scene.graphics.fillCircle(px, py, 4 + Math.random() * 4);
+    }
+  } else if (harmonyMeter >= 90) {
+    moveName = 'GREAT HARMONY!';
+    baseDamage = Math.floor(baseDamage * 1.5);
+    healAmount = 3;
+    scene.cameras.main.shake(250, 0.015);
+    playTone(scene, 750, 0.3);
   } else if (harmonyMeter >= 80) {
+    moveName = 'STUN ATTACK!';
+    baseDamage += 3;
     scene.cameras.main.shake(200, 0.01);
+    playTone(scene, 650, 0.25);
+  } else if (harmonyMeter >= 60) {
+    moveName = 'GOOD HARMONY';
+    playTone(scene, 550, 0.2);
+  } else {
+    moveName = 'WEAK ATTACK';
+    playTone(scene, 300, 0.15);
   }
+  
+  let damage = baseDamage;
   
   if (gameState === 'player_turn') {
     aiHealth = Math.max(0, aiHealth - damage);
-    score += damage * 10 + (combo * 5);
+    playerHealth = Math.min(100, playerHealth + healAmount);
+    score += damage * 10 + (combo * 5) + (harmonyMeter === 100 ? 100 : 0);
   } else {
     playerHealth = Math.max(0, playerHealth - damage);
+    aiHealth = Math.min(100, aiHealth + healAmount);
   }
+
+  // Show move name
+  const moveText = scene.add.text(400, 220, moveName, { 
+    fontSize: harmonyMeter >= 80 ? '36px' : '28px', 
+    color: harmonyMeter === 100 ? '#ff00ff' : harmonyMeter >= 80 ? '#ff00ff' : '#ffffff',
+    stroke: '#000000',
+    strokeThickness: 4
+  }).setOrigin(0.5);
+  scene.tweens.add({ 
+    targets: moveText, 
+    alpha: 0, 
+    y: moveText.y - 30, 
+    scale: 1.2,
+    duration: 1500, 
+    onComplete: () => moveText.destroy() 
+  });
 
   // Stun effect (80%+ harmony)
   if (harmonyMeter >= 80) {
@@ -371,6 +418,12 @@ function applyEffects(scene) {
     scene.tweens.add({ targets: stunText, alpha: 0, y: stunText.y - 50, duration: 1000, onComplete: () => stunText.destroy() });
     if (gameState === 'player_turn') aiHealth = Math.max(0, aiHealth - 3);
     else playerHealth = Math.max(0, playerHealth - 3);
+  }
+  
+  // Heal feedback
+  if (healAmount > 0 && gameState === 'player_turn') {
+    const healText = scene.add.text(150, 250, '+' + healAmount + ' HP', { fontSize: '24px', color: '#00ff00' }).setOrigin(0.5);
+    scene.tweens.add({ targets: healText, alpha: 0, y: healText.y - 30, duration: 1000, onComplete: () => healText.destroy() });
   }
   
   lastHarmony = harmonyMeter;
@@ -409,10 +462,19 @@ function aiPlay(scene) {
 function checkWinLose(scene) {
   if (aiHealth <= 0) {
     gameState = 'victory';
-    scene.add.text(400, 300, 'VICTORY!', { fontSize: '48px', color: '#00ff00' }).setOrigin(0.5);
+    const victoryText = scene.add.text(400, 250, 'VICTORY!', { fontSize: '64px', color: '#00ff00', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    const scoreText = scene.add.text(400, 320, 'Final Score: ' + score, { fontSize: '32px', color: '#00ffff' }).setOrigin(0.5);
+    scene.tweens.add({ targets: victoryText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
+    scene.cameras.main.shake(500, 0.03);
+    playTone(scene, 523, 0.3); // C5
+    scene.time.delayedCall(300, () => playTone(scene, 659, 0.3)); // E5
+    scene.time.delayedCall(600, () => playTone(scene, 784, 0.3)); // G5
   } else if (playerHealth <= 0) {
     gameState = 'defeat';
-    scene.add.text(400, 300, 'DEFEAT!', { fontSize: '48px', color: '#ff0000' }).setOrigin(0.5);
+    const defeatText = scene.add.text(400, 300, 'DEFEAT!', { fontSize: '64px', color: '#ff0000', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    const scoreText = scene.add.text(400, 370, 'Final Score: ' + score, { fontSize: '32px', color: '#ffff00' }).setOrigin(0.5);
+    scene.tweens.add({ targets: defeatText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
+    playTone(scene, 220, 0.5); // Low tone
   }
 }
 
