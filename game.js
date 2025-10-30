@@ -34,6 +34,10 @@ let stunTurnsRemaining = { player: 0, ai: 0 };
 let activePowerUps = { player: null, ai: null };
 let powerUpTurnsRemaining = { player: 0, ai: 0 };
 
+// Background music
+let backgroundMusic = null;
+let backgroundMusicEnabled = true;
+
 const PITCHES = ['Grave', 'Bajo', 'Medio', 'Alto', 'Agudo', 'Muy Alto', 'Estridente', 'Celestial'];
 const RHYTHMS = ['Lento', 'Normal', 'Rápido', 'Veloz'];
 const DURATIONS = ['Breve', 'Medio', 'Extendido'];
@@ -137,6 +141,9 @@ function drawBird(graphics, x, y, size, bodyColor, isZarapito = false, facing = 
 
 function create() {
   this.graphics = this.add.graphics(); // Attach to scene
+
+  // Start background music immediately on game load
+  startBackgroundMusic(this);
 
   // Menu text as group for easy destroy
   this.menuTexts = [];
@@ -252,6 +259,14 @@ function create() {
     }
   });
 
+  this.input.keyboard.on('keydown-M', () => {
+    toggleBackgroundMusic();
+    // Show feedback
+    const musicText = backgroundMusicEnabled ? '🎵 Música ON' : '🔇 Música OFF';
+    this.feedbackText.setAlpha(1).setVisible(true).setText(musicText);
+    this.tweens.add({ targets: this.feedbackText, alpha: 0, duration: 1500, onComplete: () => this.feedbackText.setVisible(false) });
+  });
+
   this.turnText = this.add.text(400, 30, '', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setVisible(false);
   
   // Initialize tone labels array
@@ -269,7 +284,7 @@ function create() {
   this.durationText = this.add.text(500, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.harmonyText = this.add.text(400, 100, 'Armonía: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
 
-  this.instructionsText = this.add.text(400, 560, 'W/S: Altura  |  A/D: Velocidad  |  Q/E: Duración  |  ESPACIO: Atacar', { fontSize: '10px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
+  this.instructionsText = this.add.text(400, 560, 'W/S: Altura  |  A/D: Velocidad  |  Q/E: Duración  |  ESPACIO: Atacar  |  M: Música', { fontSize: '9px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
   this.windText = this.add.text(100, 420, '', { fontSize: '14px', color: '#00ffff' }).setVisible(false);
   this.birdsText = this.add.text(700, 420, '', { fontSize: '14px', color: '#ff8800' }).setVisible(false);
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
@@ -1224,6 +1239,10 @@ function resetGame(scene) {
   activePowerUps = { player: null, ai: null };
   powerUpTurnsRemaining = { player: 0, ai: 0 };
   lastSuccessfulPitch = { player: null, ai: null };
+
+  // Stop and reset background music
+  stopBackgroundMusic();
+  backgroundMusicEnabled = true;
   
   // Generate new environmental tones
   generateTones();
@@ -1235,6 +1254,7 @@ function resetGame(scene) {
 function checkWinLose(scene) {
   if (aiHealth <= 0) {
     gameState = 'victory';
+    stopBackgroundMusic(); // Stop background music on victory
     // Store references to texts for cleanup
     scene.victoryText = scene.add.text(400, 250, '¡VICTORIA!', { fontSize: '64px', color: '#00ff00', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
     scene.victoryScoreText = scene.add.text(400, 320, 'Puntos Finales: ' + score, { fontSize: '32px', color: '#00ffff' }).setOrigin(0.5);
@@ -1247,6 +1267,7 @@ function checkWinLose(scene) {
     scene.time.delayedCall(600, () => playTone(scene, 784, 0.3)); // G5
   } else if (playerHealth <= 0) {
     gameState = 'defeat';
+    stopBackgroundMusic(); // Stop background music on defeat
     // Store references to texts for cleanup
     scene.defeatText = scene.add.text(400, 300, '¡DERROTA!', { fontSize: '64px', color: '#ff0000', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
     scene.defeatScoreText = scene.add.text(400, 370, 'Puntos Finales: ' + score, { fontSize: '32px', color: '#ffff00' }).setOrigin(0.5);
@@ -1254,6 +1275,173 @@ function checkWinLose(scene) {
     scene.tweens.add({ targets: scene.replayText, alpha: { from: 1, to: 0.5 }, duration: 1000, yoyo: true, repeat: -1 });
     scene.tweens.add({ targets: scene.defeatText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
     playTone(scene, 220, 0.5); // Low tone
+  }
+}
+
+function startBackgroundMusic(scene) {
+  if (!backgroundMusicEnabled || backgroundMusic) return;
+
+  const ctx = scene.sound.context;
+  backgroundMusic = {
+    oscillators: [],
+    gains: [],
+    melodyOsc: null,
+    melodyGain: null,
+    isPlaying: true,
+    currentSection: 0,
+    melodyNotes: [],
+    chordProgression: []
+  };
+
+  // More sophisticated chord progression: I - vi - IV - V - I
+  // Using frequencies for a more musical sound
+  backgroundMusic.chordProgression = [
+    { root: 261.63, notes: [261.63, 329.63, 392.00], name: 'C' },  // C major
+    { root: 220.00, notes: [220.00, 261.63, 329.63], name: 'Am' }, // A minor
+    { root: 174.61, notes: [174.61, 220.00, 261.63], name: 'F' },  // F major
+    { root: 196.00, notes: [196.00, 246.94, 293.66], name: 'G' }   // G major
+  ];
+
+  // Simple melody line that follows the chord progression
+  backgroundMusic.melodyNotes = [
+    [392.00, 440.00, 493.88, 523.25], // C major melody
+    [440.00, 392.00, 349.23, 329.63], // A minor melody
+    [349.23, 392.00, 440.00, 523.25], // F major melody
+    [392.00, 440.00, 523.25, 587.33]  // G major melody
+  ];
+
+  // Create sustained chord oscillators
+  backgroundMusic.chordProgression.forEach((chord, chordIndex) => {
+    chord.notes.forEach((freq, noteIndex) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.frequency.value = freq;
+      osc.type = noteIndex === 0 ? 'sine' : 'triangle';
+
+      // Very low volume for background - layered sound
+      gain.gain.setValueAtTime(0.008, ctx.currentTime);
+
+      backgroundMusic.oscillators.push(osc);
+      backgroundMusic.gains.push(gain);
+
+      // Start all oscillators immediately but they'll be faded
+      osc.start(ctx.currentTime);
+    });
+  });
+
+  // Create melody oscillator
+  const melodyOsc = ctx.createOscillator();
+  const melodyGain = ctx.createGain();
+  melodyOsc.connect(melodyGain);
+  melodyGain.connect(ctx.destination);
+  melodyOsc.type = 'sine';
+  melodyGain.gain.setValueAtTime(0.015, ctx.currentTime);
+  melodyOsc.start(ctx.currentTime);
+
+  backgroundMusic.melodyOsc = melodyOsc;
+  backgroundMusic.melodyGain = melodyGain;
+
+  // Musical progression system
+  let noteIndex = 0;
+  let chordIndex = 0;
+  let measureCount = 0;
+
+  const playNextNote = () => {
+    if (!backgroundMusic || !backgroundMusic.isPlaying) return;
+
+    const currentChord = backgroundMusic.chordProgression[chordIndex];
+    const currentMelody = backgroundMusic.melodyNotes[chordIndex];
+
+    // Update melody note
+    const noteFreq = currentMelody[noteIndex % currentMelody.length];
+    backgroundMusic.melodyOsc.frequency.setTargetAtTime(noteFreq, ctx.currentTime, 0.1);
+
+    // Fade chord notes in/out for smooth transitions
+    const chordStartIndex = chordIndex * 3; // 3 notes per chord
+    backgroundMusic.gains.forEach((gain, index) => {
+      if (index >= chordStartIndex && index < chordStartIndex + 3) {
+        // This chord's notes - fade in
+        gain.gain.setTargetAtTime(0.008, ctx.currentTime, 0.3);
+      } else {
+        // Other chords - fade out
+        gain.gain.setTargetAtTime(0.002, ctx.currentTime, 0.3);
+      }
+    });
+
+    noteIndex++;
+    measureCount++;
+
+    // Change chord every 4 notes (1 measure)
+    if (measureCount >= 4) {
+      chordIndex = (chordIndex + 1) % backgroundMusic.chordProgression.length;
+      measureCount = 0;
+    }
+  };
+
+  // Start the musical progression
+  playNextNote();
+  backgroundMusic.interval = setInterval(playNextNote, 600); // 600ms per note = 100 BPM
+
+  // Add some subtle rhythmic variation
+  setTimeout(() => {
+    if (backgroundMusic && backgroundMusic.isPlaying) {
+      backgroundMusic.rhythmInterval = setInterval(() => {
+        // Occasional subtle volume swells
+        if (Math.random() < 0.3) {
+          backgroundMusic.melodyGain.gain.setTargetAtTime(0.02, ctx.currentTime, 0.2);
+          setTimeout(() => {
+            if (backgroundMusic && backgroundMusic.melodyGain) {
+              backgroundMusic.melodyGain.gain.setTargetAtTime(0.015, ctx.currentTime, 0.5);
+            }
+          }, 200);
+        }
+      }, 2400); // Every ~4 notes
+    }
+  }, 1200);
+}
+
+function stopBackgroundMusic() {
+  if (!backgroundMusic) return;
+
+  backgroundMusic.isPlaying = false;
+
+  // Stop all chord oscillators
+  backgroundMusic.oscillators.forEach(osc => {
+    try {
+      osc.stop();
+    } catch (e) {
+      // Oscillator might already be stopped
+    }
+  });
+
+  // Stop melody oscillator
+  if (backgroundMusic.melodyOsc) {
+    try {
+      backgroundMusic.melodyOsc.stop();
+    } catch (e) {
+      // Oscillator might already be stopped
+    }
+  }
+
+  // Clear all intervals
+  if (backgroundMusic.interval) {
+    clearInterval(backgroundMusic.interval);
+  }
+  if (backgroundMusic.rhythmInterval) {
+    clearInterval(backgroundMusic.rhythmInterval);
+  }
+
+  backgroundMusic = null;
+}
+
+function toggleBackgroundMusic() {
+  backgroundMusicEnabled = !backgroundMusicEnabled;
+  if (!backgroundMusicEnabled) {
+    stopBackgroundMusic();
   }
 }
 
