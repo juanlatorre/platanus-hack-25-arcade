@@ -226,14 +226,14 @@ function create() {
   });
   this.input.keyboard.on('keydown-S', () => {
     if (gameState === 'player_turn') {
-      selectedMelody.duration = (selectedMelody.duration + 1) % DURATIONS.length;
+      selectedMelody.pitch = (selectedMelody.pitch - 1 + PITCHES.length) % PITCHES.length;
       calculateHarmony(); // Update harmony in real-time
     }
   });
 
   this.input.keyboard.on('keydown-D', () => {
     if (gameState === 'player_turn') {
-      selectedMelody.duration = (selectedMelody.duration - 1 + DURATIONS.length) % DURATIONS.length;
+      selectedMelody.rhythm = (selectedMelody.rhythm - 1 + RHYTHMS.length) % RHYTHMS.length;
       calculateHarmony(); // Update harmony in real-time
     }
   });
@@ -255,7 +255,7 @@ function create() {
   this.durationText = this.add.text(500, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.harmonyText = this.add.text(400, 100, 'Armonía: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
 
-  this.instructionsText = this.add.text(400, 560, 'W: Tono  |  A: Ritmo  |  S/D: Duración  |  ESPACIO: Atacar', { fontSize: '11px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
+  this.instructionsText = this.add.text(400, 560, 'W/S: Tono  |  A/D: Ritmo  |  ESPACIO: Atacar', { fontSize: '11px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
   this.windText = this.add.text(100, 420, '', { fontSize: '14px', color: '#00ffff' }).setVisible(false);
   this.birdsText = this.add.text(700, 420, '', { fontSize: '14px', color: '#ff8800' }).setVisible(false);
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
@@ -436,7 +436,7 @@ function createTutorial(scene) {
   scene.tutorialTexts.push(t6);
   const t6b = scene.add.text(400, y + spacing * 8, '🔵 = Viento  🟠 = Aves  🟢 = Ambos', { fontSize: '16px', color: '#00ffff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t6b);
-  const t7 = scene.add.text(400, y + spacing * 9, '¡Selecciona los tonos de colores para más daño!', { fontSize: '16px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t7 = scene.add.text(400, y + spacing * 9, 'Usa W/S para tono, A/D para ritmo', { fontSize: '16px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t7);
   
   const t8 = scene.add.text(400, y + spacing * 11, '✨ ESPECIALES', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
