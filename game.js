@@ -215,8 +215,8 @@ function create() {
 
   console.log('Create called'); // Debug
 
-  this.playerHPText = this.add.text(50, 10, '100/100', { fontSize: '11px', color: '#00ff00' }).setVisible(false);
-  this.aiHPText = this.add.text(750, 10, '100/100', { fontSize: '11px', color: '#ff0000' }).setVisible(false);
+  this.playerHPText = this.add.text(125, 28, 'HP: 100/100', { fontSize: '12px', color: '#00ff00' }).setOrigin(0.5).setVisible(false);
+  this.aiHPText = this.add.text(675, 28, 'HP: 100/100', { fontSize: '12px', color: '#ff0000' }).setOrigin(0.5).setVisible(false);
   this.scoreText = this.add.text(400, 10, '0', { fontSize: '14px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
 
   this.input.on('pointerdown', () => {
@@ -590,13 +590,15 @@ function update(time, delta) {
     this.graphics.fillRect(50, 10, (playerHealth / 100) * 150, 12);
     this.graphics.lineStyle(1, 0xffffff, 1);
     this.graphics.strokeRect(50, 10, 150, 12);
-    this.playerHPText.setText(playerHealth + '/100').setVisible(true).setPosition(50, 10);
+    // Player HP text - positioned below the bar, centered
+    this.playerHPText.setText('HP: ' + playerHealth + '/100').setVisible(true).setPosition(125, 28).setOrigin(0.5);
 
     // AI health bar (top right)
     this.graphics.fillStyle(0xff0000, 1);
     this.graphics.fillRect(600, 10, (aiHealth / 100) * 150, 12);
     this.graphics.strokeRect(600, 10, 150, 12);
-    this.aiHPText.setText(aiHealth + '/100').setVisible(true).setPosition(750, 10);
+    // AI HP text - positioned below the bar, centered
+    this.aiHPText.setText('HP: ' + aiHealth + '/100').setVisible(true).setPosition(675, 28).setOrigin(0.5);
 
     // Harmony meter bar (centered, below turn text)
     this.graphics.fillStyle(0xffff00, 1);
