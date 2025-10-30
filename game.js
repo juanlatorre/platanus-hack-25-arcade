@@ -38,6 +38,9 @@ let powerUpTurnsRemaining = { player: 0, ai: 0 };
 let backgroundMusic = null;
 let backgroundMusicEnabled = true;
 
+// Pre-generated mountain data to prevent flickering
+let mountainData = null;
+
 // Mouse controls - direct click on melody
 
 const PITCHES = ['Grave', 'Bajo', 'Medio', 'Alto', 'Agudo', 'Muy Alto', 'Estridente', 'Celestial'];
@@ -293,14 +296,17 @@ function create() {
   // Generate initial tones
   generateTones();
 
+  // Pre-generate mountain data to prevent flickering
+  generateMountainData();
+
   // Melody UI texts (create once)
   this.pitchText = this.add.text(100, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.rhythmText = this.add.text(300, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.durationText = this.add.text(500, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
 
   this.instructionsText = this.add.text(400, 560, 'Click en tonos para cambiar | Click en Ritmo/Duración | Click ¡Armonizar! para atacar | M: Música', { fontSize: '8px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
-  this.windText = this.add.text(100, 420, '', { fontSize: '14px', color: '#00ffff' }).setVisible(false);
-  this.birdsText = this.add.text(650, 420, '', { fontSize: '14px', color: '#ff8800' }).setOrigin(0.5).setVisible(false);
+  this.windText = this.add.text(150, 420, '', { fontSize: '14px', color: '#00ffff' }).setOrigin(0.5).setVisible(false); // Under player bird
+  this.birdsText = this.add.text(650, 420, '', { fontSize: '14px', color: '#ff8800' }).setOrigin(0.5).setVisible(false); // Under AI bird
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
 
 
@@ -450,12 +456,21 @@ function create() {
 function drawMenu(scene) {
   scene.graphics.clear();
 
-  // Gradient background - using solid colors since fillGradientStyle might not work
-  scene.graphics.fillStyle(0x1a1a2e, 1);
+  // Dynamic sky gradient background
+  drawSkyGradient(scene.graphics);
+
+  // Animated clouds
+  drawClouds(scene.graphics, scene.time.now);
+
+  // Weather effects based on current environmental tones
+  drawWeatherEffects(scene.graphics, scene.time.now);
+
+  // Semi-transparent overlay for text readability
+  scene.graphics.fillStyle(0x000000, 0.4);
   scene.graphics.fillRect(0, 0, 800, 600);
 
-  // Bird silhouettes in background
-  scene.graphics.fillStyle(0x000000, 0.08);
+  // Bird silhouettes in background (more subtle now)
+  scene.graphics.fillStyle(0x000000, 0.05);
   for (let i = 0; i < 3; i++) {
     const birdX = 100 + i * 250;
     const birdY = 150 + i * 50;
@@ -468,7 +483,7 @@ function drawMenu(scene) {
     scene.graphics.fillEllipse(birdX + 30, birdY, 25, 40);
   }
 
-  // Decorative birds - bigger size
+  // Decorative birds - bigger size but more subtle
   drawBird(scene.graphics, 200, 400, 35, 0x8b4513, false, 1);
   drawBird(scene.graphics, 600, 400, 35, 0x654321, true, -1);
 }
@@ -496,22 +511,24 @@ function createTutorial(scene) {
   scene.tutorialTexts.push(t6);
   const t6b = scene.add.text(400, y + spacing * 8, '🔵 = Viento  🟠 = Aves  🟢 = Ambos', { fontSize: '16px', color: '#00ffff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t6b);
-  const t7 = scene.add.text(400, y + spacing * 9, 'Controles: Click en tonos individuales | Click en Ritmo/Duración | Click ¡Armonizar!', { fontSize: '12px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t6c = scene.add.text(400, y + spacing * 9, 'El CLIMA afecta tu armonía: 💨 Viento = -10%  🌪️ Vendaval = -20%  🐦 Bandada = +15%', { fontSize: '12px', color: '#87CEEB' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t6c);
+  const t7 = scene.add.text(400, y + spacing * 10, 'Controles: Click en tonos individuales | Click en Ritmo/Duración | Click ¡Armonizar!', { fontSize: '12px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t7);
   
-  const t8 = scene.add.text(400, y + spacing * 11, '✨ ESPECIALES', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t8 = scene.add.text(400, y + spacing * 12, '✨ ESPECIALES', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t8);
-  const t9 = scene.add.text(400, y + spacing * 12, '100% = PERFECTA (doble daño + cura)', { fontSize: '14px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  const t9 = scene.add.text(400, y + spacing * 13, '100% = PERFECTA (doble daño + cura)', { fontSize: '14px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t9);
-  const t10 = scene.add.text(400, y + spacing * 13, '80%+ = ATURDIMIENTO (enemigo pierde 1 turno)', { fontSize: '14px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  const t10 = scene.add.text(400, y + spacing * 14, '80%+ = ATURDIMIENTO (enemigo pierde 1 turno)', { fontSize: '14px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t10);
-  const t11 = scene.add.text(400, y + spacing * 14, '💨 VIENTO FUERTE: 1.5x daño por 2 turnos', { fontSize: '12px', color: '#0088ff' }).setOrigin(0.5).setVisible(true);
+  const t11 = scene.add.text(400, y + spacing * 15, '💨 VIENTO FUERTE: 1.5x daño por 2 turnos', { fontSize: '12px', color: '#0088ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t11);
-  const t12 = scene.add.text(400, y + spacing * 15, '🐦 BANDADA: +20% armonía por 3 turnos', { fontSize: '12px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t12 = scene.add.text(400, y + spacing * 16, '🐦 BANDADA: +20% armonía por 3 turnos', { fontSize: '12px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t12);
-  const t13 = scene.add.text(400, y + spacing * 16, '🎵 ECO MUSICAL: Copia tono exitoso rival', { fontSize: '12px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  const t13 = scene.add.text(400, y + spacing * 17, '🎵 ECO MUSICAL: Copia tono exitoso rival', { fontSize: '12px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t13);
-  const t14 = scene.add.text(400, y + spacing * 17, 'Combos aumentan daño', { fontSize: '14px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  const t14 = scene.add.text(400, y + spacing * 18, 'Combos aumentan daño', { fontSize: '14px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
   scene.tutorialTexts.push(t14);
   
   const continueText = scene.add.text(400, 540, 'Haz click en cualquier lugar para comenzar', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setVisible(true);
@@ -523,8 +540,20 @@ function createTutorial(scene) {
 
 function drawTutorial(scene) {
   scene.graphics.clear();
-  // Draw example birds - bigger size
+
+  // Same dynamic background as menu
+  drawSkyGradient(scene.graphics);
+  drawClouds(scene.graphics, scene.time.now);
+  drawWeatherEffects(scene.graphics, scene.time.now);
+
+  // Semi-transparent overlay for text readability (full screen)
+  scene.graphics.fillStyle(0x000000, 0.5);
+  scene.graphics.fillRect(0, 0, 800, 600);
+
+  // Draw example birds - bigger size but more subtle with overlay
+  scene.graphics.fillStyle(0x8b4513, 0.3); // More transparent
   drawBird(scene.graphics, 200, 450, 40, 0x8b4513, true, 1);
+  scene.graphics.fillStyle(0x654321, 0.3); // More transparent
   drawBird(scene.graphics, 600, 450, 40, 0x654321, false, -1);
 }
 
@@ -541,6 +570,8 @@ function update(time, delta) {
     if (this.durationControl) this.durationControl.setVisible(false);
     // Hide attack button in menu
     if (this.attackButton) this.attackButton.setVisible(false);
+    // Hide weather indicator in menu
+    if (this.weatherText) this.weatherText.setVisible(false);
   } else if (gameState === 'tutorial') {
     drawTutorial(this);
     // Hide all gameplay UI
@@ -555,6 +586,7 @@ function update(time, delta) {
     if (this.timerText) this.timerText.setVisible(false);
     if (this.timerIcon) this.timerIcon.setVisible(false);
     if (this.instructionsText) this.instructionsText.setVisible(false);
+    if (this.weatherText) this.weatherText.setVisible(false);
     // Show tutorial texts
     if (this.tutorialTexts && this.tutorialTexts.length > 0) {
       this.tutorialTexts.forEach((t, i) => {
@@ -566,6 +598,16 @@ function update(time, delta) {
       createTutorial(this);
     }
   } else if (gameState === 'player_turn' || gameState === 'ai_turn') {
+    // Dynamic background for gameplay
+    drawSkyGradient(this.graphics);
+    drawClouds(this.graphics, time);
+
+    // Draw distant mountains/hills for depth
+    drawMountains(this.graphics);
+
+    // Weather effects
+    drawWeatherEffects(this.graphics, time);
+
     // Draw birds with dynamic idle animation
     const playerY = this.playerBirdY ? this.playerBirdY.value : 250;
     const aiY = this.aiBirdY ? this.aiBirdY.value : 250;
@@ -591,13 +633,27 @@ function update(time, delta) {
     };
     
     // Draw with dynamic animations
-    const baseSize = 85;
+    const baseSize = 110; // Increased from 85 to make birds bigger
     drawBird(this.graphics, playerX, playerY, baseSize, 0x8b4513, true, 1, playerAnim);
     drawBird(this.graphics, aiX, aiY, baseSize, 0x654321, false, -1, aiAnim);
 
-    // Environmental tones
+    // Environmental tones and weather status
     this.windText.setText('🌬️ ' + envTones.wind).setVisible(true);
     this.birdsText.setText('🐦 ' + envTones.birds).setVisible(true);
+
+    // Weather status indicator
+    const currentWeather = getCurrentWeather();
+    if (!this.weatherText) {
+      this.weatherText = this.add.text(400, 60, currentWeather, {
+        fontSize: '14px',
+        color: '#ffffff',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        padding: { x: 8, y: 4 },
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setVisible(true);
+    } else {
+      this.weatherText.setText(currentWeather).setVisible(true);
+    }
     
     // Score only shown during gameplay (not cluttering defeat/victory)
     this.scoreText.setText('⭐ Puntos: ' + score).setVisible(true);
@@ -818,9 +874,9 @@ function update(time, delta) {
     // Compact score at top center
     this.scoreText.setPosition(400, 10).setVisible(true);
 
-    // Wind/Birds positioned near selector
-    this.windText.setPosition(100, 420).setVisible(true);
-    this.birdsText.setPosition(650, 420).setVisible(true);
+    // Wind/Birds positioned under their respective birds
+    this.windText.setPosition(150, 420).setVisible(true);  // Under player bird (x=150)
+    this.birdsText.setPosition(650, 420).setVisible(true);  // Under AI bird (x=650)
 
     // Power-up indicators
     drawPowerUpIndicators(this.graphics, activePowerUps, powerUpTurnsRemaining);
@@ -998,7 +1054,11 @@ function calculateHarmony() {
     harmony += 20;
   }
 
-  harmony = Math.min(100, harmony);
+  // Apply weather modifier
+  const weatherMod = getWeatherModifier();
+  harmony += weatherMod;
+
+  harmony = Math.max(0, Math.min(100, harmony));
 }
 
 function drawPowerUpIndicators(graphics, activePowerUps, powerUpTurnsRemaining) {
@@ -1749,6 +1809,238 @@ function createRhythmDurationControls(scene) {
   } else {
     scene.durationControl.setText('⏱️ ' + DURATIONS[selectedMelody.duration] + ' ▶️').setVisible(true);
   }
+}
+
+// Dynamic weather and background system
+function drawSkyGradient(graphics) {
+  // Create a beautiful sky gradient from light blue to deeper blue
+  const skyColors = [
+    0x87CEEB, // Sky blue
+    0x4682B4, // Steel blue
+    0x1e3a5f  // Deep blue
+  ];
+
+  // Draw gradient by creating horizontal stripes
+  for (let i = 0; i < skyColors.length; i++) {
+    const y = (i / skyColors.length) * 600;
+    const height = 600 / skyColors.length + 1;
+    graphics.fillStyle(skyColors[i], 1);
+    graphics.fillRect(0, y, 800, height);
+  }
+}
+
+function drawClouds(graphics, time) {
+  // Animated clouds that move across the sky
+  const cloudSpeed = time * 0.0005; // Slow movement
+
+  for (let i = 0; i < 5; i++) {
+    const baseX = (i * 200 + cloudSpeed * (i + 1) * 50) % 1000 - 100;
+    const baseY = 80 + i * 40 + Math.sin(time * 0.001 + i) * 10;
+
+    // Draw fluffy cloud using multiple circles
+    graphics.fillStyle(0xffffff, 0.8);
+    graphics.fillCircle(baseX, baseY, 25);
+    graphics.fillCircle(baseX + 20, baseY - 5, 30);
+    graphics.fillCircle(baseX + 40, baseY, 25);
+    graphics.fillCircle(baseX + 25, baseY + 10, 20);
+    graphics.fillCircle(baseX + 10, baseY + 8, 18);
+  }
+}
+
+function drawWeatherEffects(graphics, time) {
+  // Weather effects based on environmental tones
+  const windTone = envTones.wind;
+  const birdTone = envTones.birds;
+
+  // Wind effect - particles moving horizontally
+  if (windTone) {
+    const windIntensity = getWindIntensity(windTone);
+    for (let i = 0; i < windIntensity * 3; i++) {
+      const x = (time * 0.1 * windIntensity + i * 50) % 850 - 50;
+      const y = 200 + Math.random() * 300;
+      graphics.fillStyle(0xffffff, 0.6);
+      graphics.fillCircle(x, y, 1 + Math.random() * 2);
+    }
+  }
+
+  // Bird flock effect - small flying birds
+  if (birdTone) {
+    const birdIntensity = getBirdIntensity(birdTone);
+    for (let i = 0; i < birdIntensity; i++) {
+      const x = (time * 0.05 + i * 80) % 900 - 50;
+      const y = 150 + Math.sin(time * 0.003 + i) * 50 + i * 20;
+      graphics.fillStyle(0x333333, 0.7);
+      graphics.fillCircle(x, y, 2); // Small bird dots
+      graphics.fillCircle(x + 3, y - 1, 1); // Wing
+    }
+  }
+
+  // Occasional rain or snow based on harmony
+  const harmonyEffect = Math.sin(time * 0.001) > 0.8;
+  if (harmonyEffect) {
+    const isSnow = Math.random() > 0.5;
+    const particleColor = isSnow ? 0xffffff : 0x87CEEB;
+    const particleCount = isSnow ? 20 : 30;
+
+    for (let i = 0; i < particleCount; i++) {
+      const x = Math.random() * 800;
+      const y = (time * 0.1 + i * 20) % 650 - 50;
+      graphics.fillStyle(particleColor, 0.8);
+      graphics.fillCircle(x, y, isSnow ? 1.5 : 1);
+    }
+  }
+}
+
+function getWindIntensity(windTone) {
+  // Map wind tones to intensity levels
+  const toneMap = {
+    'Grave': 1, 'Bajo': 2, 'Medio': 3, 'Alto': 4,
+    'Agudo': 5, 'Muy Alto': 6, 'Estridente': 7, 'Celestial': 8
+  };
+  return toneMap[windTone] || 3;
+}
+
+function getBirdIntensity(birdTone) {
+  // Map bird tones to flock size
+  const toneMap = {
+    'Grave': 2, 'Bajo': 3, 'Medio': 4, 'Alto': 5,
+    'Agudo': 6, 'Muy Alto': 7, 'Estridente': 8, 'Celestial': 10
+  };
+  return toneMap[birdTone] || 4;
+}
+
+function getCurrentWeather() {
+  // Determine weather based on environmental tones
+  const windTone = envTones.wind;
+  const birdTone = envTones.birds;
+
+  // Weather conditions based on tone combinations
+  let weatherType = 'Despejado';
+  let effect = 'Sin efectos';
+
+  // Wind-based weather
+  if (windTone === 'Estridente' || windTone === 'Celestial') {
+    weatherType = '🌪️ Vendaval';
+    effect = '-20% armonía';
+  } else if (windTone === 'Muy Alto' || windTone === 'Agudo') {
+    weatherType = '💨 Viento Fuerte';
+    effect = '-10% armonía';
+  } else if (windTone === 'Alto' || windTone === 'Medio') {
+    weatherType = '🌬️ Brisa';
+    effect = 'Sin efectos';
+  }
+
+  // Bird-based weather modifications
+  if (birdTone === 'Estridente' || birdTone === 'Celestial') {
+    if (weatherType === 'Despejado') {
+      weatherType = '🐦 Bandada';
+      effect = '+15% armonía';
+    } else {
+      weatherType += ' + Bandada';
+      effect = effect.replace('-', '+').replace('Sin efectos', '+15% armonía');
+    }
+  }
+
+  return `${weatherType} | ${effect}`;
+}
+
+function getWeatherModifier() {
+  // Return harmony modifier based on current weather
+  const windTone = envTones.wind;
+  const birdTone = envTones.birds;
+
+  let modifier = 0;
+
+  // Wind penalties
+  if (windTone === 'Estridente' || windTone === 'Celestial') {
+    modifier -= 20; // -20% harmony
+  } else if (windTone === 'Muy Alto' || windTone === 'Agudo') {
+    modifier -= 10; // -10% harmony
+  }
+
+  // Bird bonuses
+  if (birdTone === 'Estridente' || birdTone === 'Celestial') {
+    modifier += 15; // +15% harmony
+  }
+
+  return modifier;
+}
+
+function generateMountainData() {
+  // Pre-generate all mountain and tree positions to prevent flickering
+  mountainData = {
+    ranges: [],
+    trees: []
+  };
+
+  // Generate mountain ranges
+  const mountainRanges = [
+    { y: 450, height: 80, color: 0x1a3310 }, // Closest mountains
+    { y: 480, height: 60, color: 0x0f1f08 }, // Middle distance
+    { y: 510, height: 40, color: 0x071004 }  // Farthest
+  ];
+
+  mountainRanges.forEach(range => {
+    const peaks = [];
+    for (let x = 0; x <= 800; x += 40) {
+      // Use a seeded approach for consistent but varied terrain
+      const seed = (x * 7 + range.y * 3) % 1000;
+      const variation = (Math.sin(seed * 0.01) * 10 + (seed % 20));
+      const peakHeight = range.y - (Math.sin(x * 0.02) * range.height + variation);
+      peaks.push({ x, y: peakHeight });
+    }
+    mountainData.ranges.push({
+      y: range.y,
+      color: range.color,
+      peaks: peaks
+    });
+  });
+
+  // Generate tree positions
+  for (let i = 0; i < 8; i++) {
+    const seed = i * 37 % 1000;
+    const x = 50 + i * 100 + (seed % 50);
+    const y = 480 + ((seed * 2) % 50);
+    mountainData.trees.push({ x, y });
+  }
+}
+
+function drawMountains(graphics) {
+  if (!mountainData) return; // Safety check
+
+  // Draw distant mountains for atmospheric depth
+  graphics.fillStyle(0x2d5016, 1); // Dark green mountains
+
+  // Draw each mountain range using pre-generated data
+  mountainData.ranges.forEach(range => {
+    graphics.fillStyle(range.color, 1);
+
+    // Draw mountain peaks using pre-generated data
+    graphics.beginPath();
+    graphics.moveTo(0, 600);
+    graphics.lineTo(0, range.y);
+
+    range.peaks.forEach(peak => {
+      graphics.lineTo(peak.x, peak.y);
+    });
+
+    graphics.lineTo(800, range.y);
+    graphics.lineTo(800, 600);
+    graphics.closePath();
+    graphics.fillPath();
+  });
+
+  // Draw trees using pre-generated positions
+  graphics.fillStyle(0x0a2a05, 1);
+  mountainData.trees.forEach(tree => {
+    // Tree trunk
+    graphics.fillRect(tree.x - 2, tree.y, 4, 20);
+
+    // Tree foliage
+    graphics.fillCircle(tree.x, tree.y - 5, 8);
+    graphics.fillCircle(tree.x - 5, tree.y - 8, 6);
+    graphics.fillCircle(tree.x + 5, tree.y - 8, 6);
+  });
 }
 
 function startRainbowEffect(scene, textObject) {
