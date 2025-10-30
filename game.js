@@ -151,7 +151,7 @@ function create() {
   this.menuTexts = [];
 
   // Main title with glow effect
-  const titleText = this.add.text(400, 150, "El Duelo Sinfónico de Zarapito", {
+  const titleText = this.add.text(400, 150, "El Duelo Sinfónico del Zarapito", {
     fontSize: '32px',
     color: '#00ffff',
     stroke: '#0088ff',
@@ -335,7 +335,6 @@ function create() {
   this.pitchText = this.add.text(100, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.rhythmText = this.add.text(300, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.durationText = this.add.text(500, 350, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
-  this.harmonyText = this.add.text(400, 100, 'Armonía: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
 
   this.instructionsText = this.add.text(400, 560, 'Click en tonos para cambiar | Click en Ritmo/Duración | Click ¡Armonizar! para atacar | M: Música', { fontSize: '8px', color: '#ffff00', align: 'center' }).setOrigin(0.5).setVisible(false);
   this.windText = this.add.text(100, 420, '', { fontSize: '14px', color: '#00ffff' }).setVisible(false);
@@ -585,7 +584,6 @@ function update(time, delta) {
     // Hide all gameplay UI
     if (this.menuTexts) this.menuTexts.forEach(t => t.setVisible(false));
     if (this.turnText) this.turnText.setVisible(false);
-    if (this.harmonyText) this.harmonyText.setVisible(false);
     if (this.pitchText) this.pitchText.setVisible(false);
     if (this.rhythmText) this.rhythmText.setVisible(false);
     if (this.durationText) this.durationText.setVisible(false);
@@ -647,6 +645,7 @@ function update(time, delta) {
       
       // Update harmony in real-time
       calculateHarmony();
+      updateAttackButton(this, harmony);
 
       // Tone selector
       drawToneSelector(this.graphics, 100, 480, 600, 25, selectedMelody.pitch);
@@ -664,6 +663,7 @@ function update(time, delta) {
           this.toneLabels[i].on('pointerdown', () => {
             selectedMelody.pitch = i;
             calculateHarmony();
+            updateAttackButton(this, harmony);
             // Update the display immediately
             if (this.melodyInfoText) {
               const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
@@ -707,13 +707,6 @@ function update(time, delta) {
         this.melodyInfoText.setText(melodyInfo).setVisible(true);
       }
       
-      // Harmony text
-      let harmonyColor = '#ff6666'; // Light red for low
-      if (harmony >= 80) harmonyColor = '#ff00ff'; // Magenta for high
-      else if (harmony >= 60) harmonyColor = '#ffff00'; // Yellow for medium-high
-      else if (harmony >= 30) harmonyColor = '#66ff66'; // Light green for medium
-      
-      this.harmonyText.setText(harmony + '%').setColor(harmonyColor).setVisible(true).setPosition(300, 70);
 
       turnTimer -= delta;
       this.timerText.setText(Math.ceil(turnTimer / 1000) + 's').setVisible(true).setPosition(500, 70);
@@ -783,7 +776,6 @@ function update(time, delta) {
       this.pitchText.setVisible(false);
       this.rhythmText.setVisible(false);
       this.durationText.setVisible(false);
-      this.harmonyText.setVisible(false);
       this.timerText.setVisible(false);
       if (this.timerIcon) this.timerIcon.setVisible(false);
       this.instructionsText.setVisible(false);
@@ -837,11 +829,6 @@ function update(time, delta) {
     // AI HP text - positioned below the bar, centered
     this.aiHPText.setText('HP: ' + aiHealth + '/100').setVisible(true).setPosition(675, 28).setOrigin(0.5);
 
-    // Harmony meter bar (centered, below turn text)
-    this.graphics.fillStyle(0xffff00, 1);
-    this.graphics.fillRect(350, 70, (harmony / 100) * 100, 8);
-    this.graphics.lineStyle(1, 0xffff00, 1);
-    this.graphics.strokeRect(350, 70, 100, 8);
     
     // Compact score at top center
     this.scoreText.setPosition(400, 10).setVisible(true);
@@ -1621,24 +1608,28 @@ function updateMelodyDisplay(scene) {
 }
 
 function createAttackButton(scene) {
-  // Create a themed attack button
-  const attackButton = scene.add.text(400, 400, '¡Armonizar!', {
-    fontSize: '20px',
+  // Create a themed attack button with harmony percentage
+  const attackButton = scene.add.text(400, 400, '¡Armonizar con 0%!', {
+    fontSize: '22px',
     color: '#ffffff',
-    backgroundColor: 'rgba(255, 100, 255, 0.8)',
+    backgroundColor: 'rgba(255, 0, 0, 0.8)', // Red by default (low harmony)
     padding: { x: 15, y: 8 },
     borderRadius: 8,
     fontStyle: 'bold'
   }).setOrigin(0.5).setInteractive();
 
-  // Hover effects
+  // Store reference to current harmony color
+  attackButton.currentHarmonyColor = 'rgba(255, 0, 0, 0.8)'; // Default red
+
+  // Hover effects (preserve harmony color)
   attackButton.on('pointerover', () => {
-    attackButton.setBackgroundColor('rgba(255, 150, 255, 0.9)');
+    const hoverColor = attackButton.currentHarmonyColor.replace('0.8', '0.9');
+    attackButton.setBackgroundColor(hoverColor);
     attackButton.setScale(1.05);
   });
 
   attackButton.on('pointerout', () => {
-    attackButton.setBackgroundColor('rgba(255, 100, 255, 0.8)');
+    attackButton.setBackgroundColor(attackButton.currentHarmonyColor);
     attackButton.setScale(1);
   });
 
@@ -1658,6 +1649,28 @@ function createAttackButton(scene) {
   return attackButton;
 }
 
+function updateAttackButton(scene, harmonyPercent) {
+  if (!scene.attackButton) return;
+
+  // Update button text with harmony percentage
+  scene.attackButton.setText(`¡Armonizar con ${harmonyPercent}%!`);
+
+  // Update button color based on harmony percentage
+  let buttonColor;
+  if (harmonyPercent >= 80) {
+    buttonColor = 'rgba(255, 0, 255, 0.8)'; // Magenta for high harmony
+  } else if (harmonyPercent >= 60) {
+    buttonColor = 'rgba(255, 255, 0, 0.8)'; // Yellow for medium-high
+  } else if (harmonyPercent >= 30) {
+    buttonColor = 'rgba(0, 255, 0, 0.8)'; // Green for medium
+  } else {
+    buttonColor = 'rgba(255, 0, 0, 0.8)'; // Red for low
+  }
+
+  scene.attackButton.currentHarmonyColor = buttonColor;
+  scene.attackButton.setBackgroundColor(buttonColor);
+}
+
 
 function createRhythmDurationControls(scene) {
   // Create separate clickable controls for rhythm and duration
@@ -1675,6 +1688,7 @@ function createRhythmDurationControls(scene) {
       selectedMelody.rhythm = (selectedMelody.rhythm + 1) % RHYTHMS.length;
       scene.rhythmControl.setText('Ritmo: ' + RHYTHMS[selectedMelody.rhythm]);
       calculateHarmony();
+      updateAttackButton(scene, harmony);
       // Update the main display
       if (scene.melodyInfoText) {
         const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
@@ -1707,6 +1721,7 @@ function createRhythmDurationControls(scene) {
       selectedMelody.duration = (selectedMelody.duration + 1) % DURATIONS.length;
       scene.durationControl.setText('Duración: ' + DURATIONS[selectedMelody.duration]);
       calculateHarmony();
+      updateAttackButton(scene, harmony);
       // Update the main display
       if (scene.melodyInfoText) {
         const melodyInfo = 'ACTUAL: ' + PITCHES[selectedMelody.pitch] + ' | ' + RHYTHMS[selectedMelody.rhythm] + ' | ' + DURATIONS[selectedMelody.duration];
