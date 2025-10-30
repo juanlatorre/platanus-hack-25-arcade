@@ -19,7 +19,7 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-let gameState = 'menu'; // menu, player_turn, ai_turn, victory, defeat
+let gameState = 'menu'; // menu, tutorial, player_turn, ai_turn, victory, defeat
 let turnCount = 0;
 let playerHealth = 100;
 let aiHealth = 100;
@@ -98,8 +98,8 @@ function create() {
 
   // Menu text as group for easy destroy
   this.menuTexts = [];
-  this.menuTexts.push(this.add.text(400, 150, "Zarapito's Symphony Skirmish", { fontSize: '32px', color: '#00ffff' }).setOrigin(0.5));
-  const startText = this.add.text(400, 350, 'Press SPACE to Start', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5);
+  this.menuTexts.push(this.add.text(400, 150, "El Duelo Sinfónico de Zarapito", { fontSize: '32px', color: '#00ffff' }).setOrigin(0.5));
+  const startText = this.add.text(400, 350, 'Presiona ESPACIO para Iniciar', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5);
   this.menuTexts.push(startText);
 
   // Tween for start text
@@ -111,17 +111,31 @@ function create() {
     repeat: -1
   });
 
-  // Keyboard input
+  // Tutorial texts
+  this.tutorialTexts = [];
+
+  // Keyboard input for SPACE (handles menu->tutorial->gameplay)
   this.input.keyboard.on('keydown-SPACE', () => {
     if (gameState === 'menu') {
+      console.log('SPACE pressed in menu, transitioning to tutorial');
+      gameState = 'tutorial';
+      if (this.menuTexts) this.menuTexts.forEach(text => text.setVisible(false));
+      createTutorial(this);
+      console.log('Tutorial created, state:', gameState, 'texts count:', this.tutorialTexts ? this.tutorialTexts.length : 0);
+    } else if (gameState === 'tutorial') {
       gameState = 'player_turn';
       turnCount = 1;
       turnTimer = 7000;
       combo = 0;
       score = 0;
       lastHarmony = 0;
-      this.menuTexts.forEach(text => text.destroy()); // Clear menu
+      if (this.tutorialTexts) this.tutorialTexts.forEach(text => text.setVisible(false));
       this.turnText.setVisible(true);
+    } else if (gameState === 'player_turn') {
+      playHarmony(this);
+      gameState = 'ai_turn';
+      this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000');
+      this.time.delayedCall(1000, () => aiPlay(this));
     }
   });
 
@@ -148,41 +162,25 @@ function create() {
   this.pitchText = this.add.text(100, 420, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.rhythmText = this.add.text(300, 420, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
   this.durationText = this.add.text(500, 420, '', { fontSize: '16px', color: '#ffffff' }).setVisible(false);
-  this.harmonyText = this.add.text(400, 100, 'Harmony: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
+  this.harmonyText = this.add.text(400, 100, 'Armonía: 0%', { fontSize: '18px', color: '#ffff00' }).setOrigin(0.5).setVisible(false);
 
-  this.instructionsText = this.add.text(380, 530, 'W: Cycle Pitch (match tones!)\nA: Cycle Rhythm\nS: Duration + | D: Duration -\nSPACE: Play Harmony', { fontSize: '14px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
+  this.instructionsText = this.add.text(380, 530, 'W: Tono (coincide con Viento/Aves)\nA: Ritmo | S/D: Duración\nESPACIO: Atacar\n💡 Mayor armonía = Más daño', { fontSize: '13px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
   this.windText = this.add.text(100, 150, '', { fontSize: '16px', color: '#00ffff' }).setVisible(false);
   this.birdsText = this.add.text(700, 150, '', { fontSize: '16px', color: '#ff8800' }).setVisible(false);
   this.feedbackText = this.add.text(400, 200, '', { fontSize: '18px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
 
-  // Add SPACE to play harmony
-  this.input.keyboard.on('keydown-SPACE', () => {
-    if (gameState === 'menu') {
-      gameState = 'player_turn';
-      turnCount = 1;
-      this.menuTexts.forEach(text => text.destroy()); // Clear menu
-      this.turnText.setVisible(true);
-    }
-    else if (gameState === 'player_turn') {
-      playHarmony(this);
-      gameState = 'ai_turn';
-      this.turnText.setText('AI Turn ' + turnCount).setColor('#ff0000');
-      this.time.delayedCall(1000, () => aiPlay(this));
-    }
-  });
-
   console.log('Create called'); // Debug
 
-  this.playerHPText = this.add.text(50, 5, 'Player HP: 100', { fontSize: '14px', color: '#00ff00' }).setVisible(false);
-  this.aiHPText = this.add.text(600, 5, 'AI HP: 100', { fontSize: '14px', color: '#ff0000' }).setVisible(false);
-  this.scoreText = this.add.text(400, 5, 'Score: 0', { fontSize: '20px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
+  this.playerHPText = this.add.text(50, 5, 'HP Jugador: 100', { fontSize: '14px', color: '#00ff00' }).setVisible(false);
+  this.aiHPText = this.add.text(600, 5, 'HP IA: 100', { fontSize: '14px', color: '#ff0000' }).setVisible(false);
+  this.scoreText = this.add.text(400, 5, 'Puntos: 0', { fontSize: '20px', color: '#00ffff' }).setOrigin(0.5).setVisible(false);
 
   this.input.on('pointerdown', () => {
     if (this.sound.context.state === 'suspended') this.sound.context.resume();
     console.log('Audio resumed on click');
   });
 
-  this.timerText = this.add.text(400, 70, 'Time: 10s', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
+  this.timerText = this.add.text(400, 70, 'Tiempo: 7s', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
 }
 
 function drawMenu(scene) {
@@ -192,6 +190,53 @@ function drawMenu(scene) {
   drawBird(scene.graphics, 600, 400, 25, 0x654321, true, -1);
 }
 
+function createTutorial(scene) {
+  if (scene.tutorialTexts && scene.tutorialTexts.length > 0) return; // Already created
+  
+  scene.tutorialTexts = [];
+  const y = 80;
+  let spacing = 32;
+  
+  const t1 = scene.add.text(400, y, 'CÓMO JUGAR', { fontSize: '36px', color: '#00ffff', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t1);
+  
+  const t2 = scene.add.text(400, y + spacing * 2, '🎵 OBJETIVO', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t2);
+  const t3 = scene.add.text(400, y + spacing * 3, 'Combate con armonías musicales', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t3);
+  const t4 = scene.add.text(400, y + spacing * 4, 'Reduce el HP del rival a 0 para ganar', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t4);
+  
+  const t5 = scene.add.text(400, y + spacing * 6, '🎼 ARMONÍA', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t5);
+  const t6 = scene.add.text(400, y + spacing * 7, 'Coincide tu TONO con Viento o Aves', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t6);
+  const t7 = scene.add.text(400, y + spacing * 8, 'Mayor armonía = Más daño', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t7);
+  
+  const t8 = scene.add.text(400, y + spacing * 10, '✨ ESPECIALES', { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t8);
+  const t9 = scene.add.text(400, y + spacing * 11, '100% = PERFECTA (doble daño + cura)', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t9);
+  const t10 = scene.add.text(400, y + spacing * 12, '80%+ = Aturdimiento', { fontSize: '16px', color: '#ff00ff' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t10);
+  const t11 = scene.add.text(400, y + spacing * 13, 'Combos aumentan daño', { fontSize: '16px', color: '#ffff00' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(t11);
+  
+  const continueText = scene.add.text(400, 540, 'Presiona ESPACIO para comenzar', { fontSize: '20px', color: '#00ff00' }).setOrigin(0.5).setVisible(true);
+  scene.tutorialTexts.push(continueText);
+  scene.tweens.add({ targets: continueText, alpha: { from: 1, to: 0.5 }, duration: 1000, yoyo: true, repeat: -1 });
+  
+  console.log('Tutorial creado, textos:', scene.tutorialTexts.length);
+}
+
+function drawTutorial(scene) {
+  scene.graphics.clear();
+  // Draw example birds
+  drawBird(scene.graphics, 200, 450, 30, 0x8b4513, true, 1);
+  drawBird(scene.graphics, 600, 450, 30, 0x654321, false, -1);
+}
+
 function update(time, delta) {
   this.graphics.clear();
 
@@ -199,6 +244,34 @@ function update(time, delta) {
     drawMenu(this);
     this.menuTexts.forEach(t => t.setVisible(true));
     this.turnText.setVisible(false);
+    if (this.tutorialTexts) this.tutorialTexts.forEach(t => t.setVisible(false));
+  } else if (gameState === 'tutorial') {
+    drawTutorial(this);
+    // Hide all gameplay UI
+    if (this.menuTexts) this.menuTexts.forEach(t => t.setVisible(false));
+    if (this.turnText) this.turnText.setVisible(false);
+    if (this.harmonyText) this.harmonyText.setVisible(false);
+    if (this.pitchText) this.pitchText.setVisible(false);
+    if (this.rhythmText) this.rhythmText.setVisible(false);
+    if (this.durationText) this.durationText.setVisible(false);
+    if (this.windText) this.windText.setVisible(false);
+    if (this.birdsText) this.birdsText.setVisible(false);
+    if (this.scoreText) this.scoreText.setVisible(false);
+    if (this.timerText) this.timerText.setVisible(false);
+    if (this.instructionsText) this.instructionsText.setVisible(false);
+    // Show tutorial texts
+    if (this.tutorialTexts && this.tutorialTexts.length > 0) {
+      console.log('Tutorial state: showing', this.tutorialTexts.length, 'texts');
+      this.tutorialTexts.forEach((t, i) => {
+        if (t && t.active !== false) {
+          t.setVisible(true);
+          console.log('Text', i, 'visible:', t.visible, 'active:', t.active);
+        }
+      });
+    } else {
+      console.log('WARNING: Tutorial state but no texts! Creating them now...');
+      createTutorial(this);
+    }
   } else if (gameState === 'player_turn' || gameState === 'ai_turn') {
     // Draw birds (always visible in gameplay)
     drawBird(this.graphics, 150, 300, 50, 0x8b4513, true, 1);
@@ -212,26 +285,26 @@ function update(time, delta) {
 
     // Instructions text (always visible in gameplay)
     if (!this.instructionsText || !this.instructionsText.active) {
-      this.instructionsText = this.add.text(400, 530, 'W: Cycle Pitch (match tones!)\nA: Cycle Rhythm\nS: Duration + | D: Duration -\nSPACE: Play Harmony', { fontSize: '14px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
+      this.instructionsText = this.add.text(380, 530, 'W: Tono (coincide con Viento/Aves)\nA: Ritmo | S/D: Duración\nESPACIO: Atacar\n💡 Mayor armonía = Más daño', { fontSize: '13px', color: '#ffff00', align: 'center' }).setOrigin(0.5);
     }
     this.instructionsText.setVisible(true);
 
     // Environmental tones (always visible in gameplay)
-    this.windText.setText('Wind: ' + environmentalTones.wind).setVisible(true);
-    this.birdsText.setText('Birds: ' + environmentalTones.birds).setVisible(true);
-    this.scoreText.setText('Score: ' + score).setVisible(true);
+    this.windText.setText('Viento: ' + environmentalTones.wind).setVisible(true);
+    this.birdsText.setText('Aves: ' + environmentalTones.birds).setVisible(true);
+    this.scoreText.setText('Puntos: ' + score).setVisible(true);
 
     if (gameState === 'player_turn') {
-      this.turnText.setText('Player Turn ' + turnCount).setColor('#00ff00').setVisible(true);
+      this.turnText.setText('Turno ' + turnCount + ' - Jugador').setColor('#00ff00').setVisible(true);
 
       // Melody UI (only in player turn)
-      this.pitchText.setText('Pitch: ' + PITCHES[selectedMelody.pitch]).setVisible(true);
-      this.rhythmText.setText('Rhythm: ' + RHYTHMS[selectedMelody.rhythm]).setVisible(true);
-      this.durationText.setText('Duration: ' + DURATIONS[selectedMelody.duration]).setVisible(true);
-      this.harmonyText.setText('Harmony: ' + harmonyMeter + '%').setVisible(true);
+      this.pitchText.setText('Tono: ' + PITCHES[selectedMelody.pitch]).setVisible(true);
+      this.rhythmText.setText('Ritmo: ' + RHYTHMS[selectedMelody.rhythm]).setVisible(true);
+      this.durationText.setText('Duración: ' + DURATIONS[selectedMelody.duration]).setVisible(true);
+      this.harmonyText.setText('Armonía: ' + harmonyMeter + '%').setVisible(true);
 
       turnTimer -= delta;
-      this.timerText.setText('Time: ' + Math.ceil(turnTimer / 1000) + 's').setVisible(true);
+      this.timerText.setText('Tiempo: ' + Math.ceil(turnTimer / 1000) + 's').setVisible(true);
 
       // Timer bar
       this.graphics.fillStyle(0x00ffff, 1);
@@ -245,12 +318,12 @@ function update(time, delta) {
         selectedMelody.duration = Math.floor(Math.random() * DURATIONS.length);
         playHarmony(this);
         gameState = 'ai_turn';
-        this.turnText.setText('AI Turn ' + turnCount).setColor('#ff0000');
+        this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000');
         this.time.delayedCall(500, () => aiPlay(this));
         turnTimer = 7000;
       }
     } else if (gameState === 'ai_turn') {
-      this.turnText.setText('AI Turn ' + turnCount).setColor('#ff0000').setVisible(true);
+      this.turnText.setText('Turno ' + turnCount + ' - IA').setColor('#ff0000').setVisible(true);
       // Hide melody UI during AI turn
       this.pitchText.setVisible(false);
       this.rhythmText.setVisible(false);
@@ -260,35 +333,33 @@ function update(time, delta) {
     }
   }
 
-  // Add health bars in update() player_turn/ai_turn using graphics (after clear):
+  // Only show gameplay UI during actual gameplay
+  if (gameState === 'player_turn' || gameState === 'ai_turn') {
+    // Player health bar
+    this.graphics.fillStyle(0x00ff00, 1);
+    this.graphics.fillRect(50, 20, (playerHealth / 100) * 150, 15);
+    this.graphics.lineStyle(1, 0xffffff, 1);
+    this.graphics.strokeRect(50, 20, 150, 15);
 
-  // Player health bar
-  this.graphics.fillStyle(0x00ff00, 1);
-  this.graphics.fillRect(50, 20, (playerHealth / 100) * 150, 15);
-  this.graphics.lineStyle(1, 0xffffff, 1);
-  this.graphics.strokeRect(50, 20, 150, 15);
+    // AI health bar
+    this.graphics.fillStyle(0xff0000, 1);
+    this.graphics.fillRect(600, 20, (aiHealth / 100) * 150, 15);
+    this.graphics.strokeRect(600, 20, 150, 15);
 
-  // AI health bar
-  this.graphics.fillStyle(0xff0000, 1);
-  this.graphics.fillRect(600, 20, (aiHealth / 100) * 150, 15);
-  this.graphics.strokeRect(600, 20, 150, 15);
+    // Harmony meter bar
+    this.graphics.fillStyle(0xffff00, 1);
+    this.graphics.fillRect(350, 120, (harmonyMeter / 100) * 100, 10);
+    this.graphics.strokeRect(350, 120, 100, 10);
 
-  // Harmony meter bar
-  this.graphics.fillStyle(0xffff00, 1);
-  this.graphics.fillRect(350, 120, (harmonyMeter / 100) * 100, 10);
-  this.graphics.strokeRect(350, 120, 100, 10);
+    this.playerHPText.setText('HP Jugador: ' + playerHealth).setVisible(true);
+    this.aiHPText.setText('HP IA: ' + aiHealth).setVisible(true);
+    this.feedbackText.setVisible(false); // Only show when harmony is played
+  } else {
+    this.feedbackText.setVisible(false);
+  }
 
-  // In playHarmony, after applyEffects: Show feedback and fade out
-
-  this.playerHPText.setText('Player HP: ' + playerHealth).setVisible(true);
-  this.aiHPText.setText('AI HP: ' + aiHealth).setVisible(true);
-
-  this.tweens.killTweensOf(this.feedbackText); // Stop any ongoing fade
-  this.feedbackText.setAlpha(1).setVisible(true).setText(`Harmony ${harmonyMeter}% - Dealt ${Math.floor(harmonyMeter / 10)} damage!`);
-  this.tweens.add({ targets: this.feedbackText, alpha: 0, duration: 1500, onComplete: () => this.feedbackText.setVisible(false) });
-
-  // Hide UI in menu/victory/defeat: Add in update() if (gameState !== 'player_turn' && gameState !== 'ai_turn') { this.instructionsText.setVisible(false); this.windText.setVisible(false); this.birdsText.setVisible(false); }
-  if (gameState !== 'player_turn' && gameState !== 'ai_turn') {
+  // Hide gameplay UI in menu/victory/defeat (but NOT in tutorial)
+  if (gameState !== 'player_turn' && gameState !== 'ai_turn' && gameState !== 'tutorial') {
     this.instructionsText.setVisible(false);
     this.windText.setVisible(false);
     this.birdsText.setVisible(false);
@@ -298,8 +369,6 @@ function update(time, delta) {
   }
 
   // Note: These texts recreate each frame—optimize by creating once if needed, but fine for now.
-  console.log('Update loop running, state: ' + gameState);
-  console.log('Update: state=' + gameState); // Debug
 }
 
 const FREQUENCIES = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88, C5: 523.25 };
@@ -352,7 +421,7 @@ function applyEffects(scene) {
   
   // Special moves and effects based on harmony
   if (harmonyMeter === 100) {
-    moveName = 'PERFECT HARMONY!';
+    moveName = '¡ARMONÍA PERFECTA!';
     baseDamage = baseDamage * 2;
     healAmount = 5; // Heal on perfect
     scene.cameras.main.shake(300, 0.02);
@@ -367,21 +436,21 @@ function applyEffects(scene) {
       scene.graphics.fillCircle(px, py, 4 + Math.random() * 4);
     }
   } else if (harmonyMeter >= 90) {
-    moveName = 'GREAT HARMONY!';
+    moveName = '¡GRAN ARMONÍA!';
     baseDamage = Math.floor(baseDamage * 1.5);
     healAmount = 3;
     scene.cameras.main.shake(250, 0.015);
     playTone(scene, 750, 0.3);
   } else if (harmonyMeter >= 80) {
-    moveName = 'STUN ATTACK!';
+    moveName = '¡ATAQUE ATURDIDOR!';
     baseDamage += 3;
     scene.cameras.main.shake(200, 0.01);
     playTone(scene, 650, 0.25);
   } else if (harmonyMeter >= 60) {
-    moveName = 'GOOD HARMONY';
+    moveName = 'BUENA ARMONÍA';
     playTone(scene, 550, 0.2);
   } else {
-    moveName = 'WEAK ATTACK';
+    moveName = 'ATAQUE DÉBIL';
     playTone(scene, 300, 0.15);
   }
   
@@ -414,7 +483,7 @@ function applyEffects(scene) {
 
   // Stun effect (80%+ harmony)
   if (harmonyMeter >= 80) {
-    const stunText = scene.add.text(400, 250, 'STUN!', { fontSize: '32px', color: '#ff00ff' }).setOrigin(0.5);
+    const stunText = scene.add.text(400, 250, '¡ATURDIMIENTO!', { fontSize: '32px', color: '#ff00ff' }).setOrigin(0.5);
     scene.tweens.add({ targets: stunText, alpha: 0, y: stunText.y - 50, duration: 1000, onComplete: () => stunText.destroy() });
     if (gameState === 'player_turn') aiHealth = Math.max(0, aiHealth - 3);
     else playerHealth = Math.max(0, playerHealth - 3);
@@ -437,7 +506,7 @@ function applyEffects(scene) {
   
   // Show combo feedback
   if (combo > 1) {
-    const comboText = scene.add.text(400, 280, `COMBO x${combo}!`, { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5);
+    const comboText = scene.add.text(400, 280, `¡COMBO x${combo}!`, { fontSize: '24px', color: '#ffff00' }).setOrigin(0.5);
     scene.tweens.add({ targets: comboText, alpha: 0, scale: 1.5, duration: 1000, onComplete: () => comboText.destroy() });
   }
 }
@@ -452,9 +521,9 @@ function aiPlay(scene) {
   turnCount++;
   generateTones();
   gameState = 'player_turn';
-  scene.turnText.setText('Player Turn ' + turnCount).setColor('#00ff00');
+  scene.turnText.setText('Turno ' + turnCount + ' - Jugador').setColor('#00ff00');
 
-  scene.feedbackText.setAlpha(1).setVisible(true).setText(`AI Harmony ${harmonyMeter}% - Dealt ${Math.floor(harmonyMeter / 10)} damage!`);
+  scene.feedbackText.setAlpha(1).setVisible(true).setText(`Armonía IA ${harmonyMeter}% - ¡${Math.floor(harmonyMeter / 10)} de daño!`);
   scene.tweens.add({ targets: scene.feedbackText, alpha: 0, duration: 1500, onComplete: () => scene.feedbackText.setVisible(false) });
   turnTimer = 7000;
 }
@@ -462,8 +531,8 @@ function aiPlay(scene) {
 function checkWinLose(scene) {
   if (aiHealth <= 0) {
     gameState = 'victory';
-    const victoryText = scene.add.text(400, 250, 'VICTORY!', { fontSize: '64px', color: '#00ff00', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
-    const scoreText = scene.add.text(400, 320, 'Final Score: ' + score, { fontSize: '32px', color: '#00ffff' }).setOrigin(0.5);
+    const victoryText = scene.add.text(400, 250, '¡VICTORIA!', { fontSize: '64px', color: '#00ff00', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    const scoreText = scene.add.text(400, 320, 'Puntos Finales: ' + score, { fontSize: '32px', color: '#00ffff' }).setOrigin(0.5);
     scene.tweens.add({ targets: victoryText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
     scene.cameras.main.shake(500, 0.03);
     playTone(scene, 523, 0.3); // C5
@@ -471,8 +540,8 @@ function checkWinLose(scene) {
     scene.time.delayedCall(600, () => playTone(scene, 784, 0.3)); // G5
   } else if (playerHealth <= 0) {
     gameState = 'defeat';
-    const defeatText = scene.add.text(400, 300, 'DEFEAT!', { fontSize: '64px', color: '#ff0000', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
-    const scoreText = scene.add.text(400, 370, 'Final Score: ' + score, { fontSize: '32px', color: '#ffff00' }).setOrigin(0.5);
+    const defeatText = scene.add.text(400, 300, '¡DERROTA!', { fontSize: '64px', color: '#ff0000', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    const scoreText = scene.add.text(400, 370, 'Puntos Finales: ' + score, { fontSize: '32px', color: '#ffff00' }).setOrigin(0.5);
     scene.tweens.add({ targets: defeatText, scale: { from: 0.5, to: 1 }, duration: 500, ease: 'Back.easeOut' });
     playTone(scene, 220, 0.5); // Low tone
   }
