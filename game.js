@@ -234,15 +234,15 @@ function create() {
   this.timerText = this.add.text(500, 70, '7s', { fontSize: '12px', color: '#ffffff' }).setVisible(false);
 
   // Create dynamic idle animations for birds
-  // Player bird animation parameters
-  this.playerBirdY = { value: 200 };
+  // Player bird animation parameters (moved down to y: 250)
+  this.playerBirdY = { value: 250 };
   this.playerBirdNeckAngle = { value: 0 };
   this.playerBirdBodyTilt = { value: 0 };
   this.playerBirdWingOffset = { value: 0 };
   this.playerBirdHeadBob = { value: 0 };
   
-  // AI bird animation parameters
-  this.aiBirdY = { value: 200 };
+  // AI bird animation parameters (moved down to y: 250)
+  this.aiBirdY = { value: 250 };
   this.aiBirdNeckAngle = { value: 0 };
   this.aiBirdBodyTilt = { value: 0 };
   this.aiBirdWingOffset = { value: 0 };
@@ -259,7 +259,7 @@ function create() {
   // Player bird - vertical bobbing (smooth breathing)
   this.tweens.add({
     targets: this.playerBirdY,
-    value: 200 + 12,
+    value: 250 + 12,
     duration: 1800,
     ease: 'Sine.easeInOut',
     yoyo: true,
@@ -313,7 +313,7 @@ function create() {
   // AI bird - vertical bobbing (out of sync)
   this.tweens.add({
     targets: this.aiBirdY,
-    value: 200 + 12,
+    value: 250 + 12,
     duration: 2000,
     ease: 'Sine.easeInOut',
     yoyo: true,
@@ -459,8 +459,8 @@ function update(time, delta) {
     }
   } else if (gameState === 'player_turn' || gameState === 'ai_turn') {
     // Draw birds (always visible in gameplay) - bigger size with dynamic idle animation
-    const playerY = this.playerBirdY ? this.playerBirdY.value : 200;
-    const aiY = this.aiBirdY ? this.aiBirdY.value : 200;
+    const playerY = this.playerBirdY ? this.playerBirdY.value : 250;
+    const aiY = this.aiBirdY ? this.aiBirdY.value : 250;
     const playerX = this.playerBirdX ? this.playerBirdX.value : 150;
     const aiX = this.aiBirdX ? this.aiBirdX.value : 650;
     
@@ -482,8 +482,8 @@ function update(time, delta) {
       colorFlash: this.aiBirdColor ? this.aiBirdColor.value : 1.0
     };
     
-    // Draw with dynamic animations (using animated X positions)
-    const baseSize = 70;
+    // Draw with dynamic animations (using animated X positions) - bigger birds
+    const baseSize = 85;
     drawBird(this.graphics, playerX, playerY, baseSize, 0x8b4513, true, 1, playerAnim);
     drawBird(this.graphics, aiX, aiY, baseSize, 0x654321, false, -1, aiAnim);
 
@@ -653,7 +653,7 @@ let turnTimer = 15000; // 15 seconds
 let combo = 0;
 let score = 0;
 let lastHarmony = 0;
-let birdPositions = { player: { baseY: 200, offsetY: 0 }, ai: { baseY: 200, offsetY: 0 } };
+let birdPositions = { player: { baseY: 250, offsetY: 0 }, ai: { baseY: 250, offsetY: 0 } };
 
 function generateTones() {
   environmentalTones.wind = PITCHES[Math.floor(Math.random() * PITCHES.length)];
@@ -813,7 +813,7 @@ function applyEffects(scene) {
     if (gameState === 'player_turn') {
       aiHealth = Math.max(0, aiHealth - 3);
       const aiX = scene.aiBirdX ? scene.aiBirdX.value : 650;
-      const aiY = scene.aiBirdY ? scene.aiBirdY.value : 200;
+      const aiY = scene.aiBirdY ? scene.aiBirdY.value : 250;
       // Show stun damage slightly offset
       scene.time.delayedCall(200, () => {
         showDamageNumber(scene, aiX + 20, aiY - 30, 3, false);
@@ -821,7 +821,7 @@ function applyEffects(scene) {
     } else {
       playerHealth = Math.max(0, playerHealth - 3);
       const playerX = scene.playerBirdX ? scene.playerBirdX.value : 150;
-      const playerY = scene.playerBirdY ? scene.playerBirdY.value : 200;
+      const playerY = scene.playerBirdY ? scene.playerBirdY.value : 250;
       // Show stun damage slightly offset
       scene.time.delayedCall(200, () => {
         showDamageNumber(scene, playerX - 20, playerY - 30, 3, false);
@@ -835,8 +835,8 @@ function applyEffects(scene) {
       (scene.playerBirdX ? scene.playerBirdX.value : 150) : 
       (scene.aiBirdX ? scene.aiBirdX.value : 650);
     const birdY = gameState === 'player_turn' ? 
-      (scene.playerBirdY ? scene.playerBirdY.value : 200) : 
-      (scene.aiBirdY ? scene.aiBirdY.value : 200);
+      (scene.playerBirdY ? scene.playerBirdY.value : 250) : 
+      (scene.aiBirdY ? scene.aiBirdY.value : 250);
     showHealNumber(scene, birdX, birdY, healAmount);
   }
   
@@ -850,9 +850,9 @@ function applyEffects(scene) {
 
   // Get current bird positions for attack visualization
   const playerX = scene.playerBirdX ? scene.playerBirdX.value : 150;
-  const playerY = scene.playerBirdY ? scene.playerBirdY.value : 200;
+  const playerY = scene.playerBirdY ? scene.playerBirdY.value : 250;
   const aiX = scene.aiBirdX ? scene.aiBirdX.value : 650;
-  const aiY = scene.aiBirdY ? scene.aiBirdY.value : 200;
+  const aiY = scene.aiBirdY ? scene.aiBirdY.value : 250;
   
   if (gameState === 'player_turn') {
     animateAttack(scene, scene.graphics, playerX, playerY, aiX, aiY, harmonyMeter, combo);
@@ -1050,7 +1050,7 @@ function showDamageNumber(scene, x, y, damage, isCrit = false) {
     strokeThickness: 4,
     fontStyle: 'bold'
   }).setOrigin(0.5);
-  
+
   // Animate: float up and fade out
   scene.tweens.add({
     targets: damageText,
@@ -1083,7 +1083,7 @@ function showHealNumber(scene, x, y, healAmount) {
     strokeThickness: 3,
     fontStyle: 'bold'
   }).setOrigin(0.5);
-  
+
   // Animate: float up and fade out
   scene.tweens.add({
     targets: healText,
